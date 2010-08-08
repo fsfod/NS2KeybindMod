@@ -1,16 +1,16 @@
 --[[
 	Public Api
 
-	void KeybindMapper:LinkBindToConsoleCmd(string bindname, string ConsoleCommandString [, string updown])
+	void SetKeyToConsoleCmd(string bindname, string ConsoleCommandString)
 	
 	--if the fuction name is not provided the name of the bindname is used as the function name
-	void KeybindMapper:LinkBindToSelfFunction(bindname, selfobj, funcname [, string updown])
+	void LinkBindToSelfFunction(bindname, selfobj, funcname [, string updown])
 	
+
+	void RegisterActionToBind(string bindname, table action)
 	
-	void KeybindMapper:RegisterActionToBind(string bindname, table action)
-	
-	void KeybindMapper:ActivateKeybindGroup(string groupname)
-	void KeybindMapper:DeactivateKeybindGroup(string groupname)
+	void ActivateKeybindGroup(string groupname)
+	void DeactivateKeybindGroup(string groupname)
 ]]--
 
 Script.Load("lua/BindingsShared.lua")
@@ -68,9 +68,7 @@ end
 
 KeybindMapper = {
 	Keybinds = {}, 
-	MovementVector = Vector(0,0,0), 
-	--InputMovementKeyMappings = {},
-	--InputKeybindMappings = {},
+	MovementVector = Vector(0,0,0),
 	InputBitActions = {},
 	MovmentVectorActions = {},
 	KeybindActions = {},
@@ -161,6 +159,12 @@ function KeybindMapper:RefreshInputKeybinds()
 
 	self.ConsoleKey = KeyBindInfo:GetBoundKey("ToggleConsole") or "Grave"
 	
+
+	self.ConsoleCmdKeys = {}
+	for key,cmd in pairs(KeyBindInfo:GetConsoleCmdBoundKeys()) do
+		self:SetKeyToConsoleCommand(key, cmd)
+	end
+
 	if(#self.OverrideGroups ~= 0) then
 		local old = self.OverrideGroups
 		self.OverrideGroups = {}
@@ -573,25 +577,25 @@ function KeybindMapper:ClearKey(key)
 	self.Keybinds[key] = nil
 end
 
-function KeybindMapper:BindKeyToConsoleCommand(key, commandstring)
+function KeybindMapper:SetKeyToConsoleCommand(key, commandstring)
 	
 	local keybindAction = {
 		ConsoleCommand = commandstring,
 		UserCreatedBind = true,
+		OnDown = function() Shared.ConsoleCommand(commandstring) end
 	}
-
-	local func = function() Shared.ConsoleCommand(commandstring) end
-
-	if(updown == nil or updown == "down") then
-		keybindAction.OnDown = func
-	elseif(updown == "up") then
-		keybindAction.OnUp = func
-	end
 	
+	self.ConsoleCmdKeys[key] = keybindAction
 	self.Keybinds[key] = keybindAction
 end
 
 function BindConsoleCommand(player, key, ...)
+	
+	if(not key or select('#', ...) == 0) then
+		Shared.Message("bind useage \"bind keyname consolecommand\"")
+		
+	 return
+	end
 	
 	local upperkey = key:upper()
 	local RealKeyName = false
@@ -604,11 +608,10 @@ function BindConsoleCommand(player, key, ...)
 	end
 
 	if(RealKeyName) then
-		KeybindMapper:ClearKey(RealKeyName)
-		
 		local command = table.concat({...}, " ")
 		
-		KeybindMapper:BindKeyToConsoleCommand(RealKeyName, command)
+		KeyInfo:SetConsoleCmdBind(RealKeyName, command)
+		KeybindMapper:SetKeyToConsoleCommand(RealKeyName, command)
 	else
 		Shared.Message("bind:Unreconized key "..key)
 	end

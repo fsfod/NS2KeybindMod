@@ -10,7 +10,7 @@ The Red I in the top corner means input events are currenly being tracked it sho
 Features
 	Commander Specific Bindings Added including View Scrolling binds, these binds can be bound to the same key as any non commander bind like
 	 your normal movment keys without issue.
-	"bind" console command added can only bind a key to a console command atm these binds are not persisted through map changes/game exits yet
+	"bind" console command added can only bind a key to a console command atm these binds
 	Old ns1 Favorites F1,F2,F3,F4 make a welcom return if you have something else already bound to these keys you will have to go manualy bind them
 	Open Feedback key has been moved to F5 if its free, a entry in the binding menu has been added for it as well if you want to rebind it
 

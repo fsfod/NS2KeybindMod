@@ -4,18 +4,22 @@ Notes
 
 		
 Public functions:
-	bool IsKeyBound(string KeyName)
-	string GetBoundKey(BindName)
-	string GetBindSetToKey(key)
 	void SetKeybind(string KeyName, string BindName)
+	void SetConsoleCmdBind(string key, string consoleCommand)
+	bool IsKeyBound(string KeyName)
+	string GetBoundKey(string bindName)
+	string GetBindSetToKey(key)
 	void UnbindKey(string KeyName)
 	void ClearBind(string BindName)
 	
-	table GetGlobalBoundKeys()
-	bool IsBindOverrider(stirng BindName)
+	table GetGlobalBoundKeys() table format  {key = bindname}
+	table GetConsoleCmdBoundKeys() table format  {key = consoleCmdString}
+	
+	bool IsBindOverrider(stirng bindName)
+	
 	bool KeybindGroupExists(stirng groupName)
 	table GetGroupBoundKeys(string groupName)
-	string GetBoundKeyGroup(string key, stringgroupName)
+	string GetBoundKeyGroup(string key, string groupName)
 ]]--
 
 InputKeyNames = {
@@ -180,6 +184,7 @@ KeyBindInfo = {
 	RegisteredKeybinds = {},
 	KeybindNameToKey = {},
 	KeybindNameToOwnerGroup = {},
+	BoundConsoleCmds = {},
 	BoundKeys = {}, --stores the maping of a key to a keybindname. Override bind keys never get put in this table
 	KeybindGroupLookup = {},
 	KeybindGroups = {}, --we need this so we have an ordered list of keybind groups when deciding default keys
@@ -275,7 +280,7 @@ KeyBindInfo.AlienCommander = {
 			{"PlaceHolder",	"PlaceHolder", ""},
 		}
 }
-
+--[[
 KeyBindInfo.HiddenKeybinds = {
 		Hidden = true,
 		Name = "EngineInternal",
@@ -286,7 +291,7 @@ KeyBindInfo.HiddenKeybinds = {
 			{"ToggleDebugging"},
 		}
 }
-
+]]--
 KeyBindInfo.EngineProcessed = {
 	ToggleConsole = true,
 	ActivateSteamworksOverlay = true,
@@ -332,7 +337,7 @@ function KeyBindInfo:AddDefaultKeybindGroups()
 	self:AddKeybindGroup(self.MovementKeybinds)
 	self:AddKeybindGroup(self.ActionKeybinds)
 	self:AddKeybindGroup(self.MiscKeybinds)
-	self:AddKeybindGroup(self.HiddenKeybinds)
+	--self:AddKeybindGroup(self.HiddenKeybinds)
 	self:AddKeybindGroup(self.CommanderShared)
 	self:AddKeybindGroup(self.MarineCommander)
 	self:AddKeybindGroup(self.AlienCommander)
@@ -369,17 +374,20 @@ function KeyBindInfo:LoadAndValidateSavedKeyBinds()
 		self:ImportKeys()
 		Main.SetOptionString("Keybinds/Version", "1")
 	end
+	
+	self:LoadConsoleCmdBinds()
 
-	--add any keybinds where they default key is currently unbound and which have BindDefautKeys set to true for there keybind group
+	--set any keybinds with a default key that is stil free
 	for _,bindgroup in ipairs(self.KeybindGroups) do
 		if(not bindgroup.OverrideGroup) then
 			for _,bind in ipairs(bindgroup.Keybinds) do
-				if(bind[3] ~= "" and not self:GetBoundKey(bind[1]) and  not self:IsKeyBound(bind[3])) then
+				if(bind[3] ~= "" and not self:GetBoundKey(bind[1]) and not self:IsKeyBound(bind[3])) then
 					self:InternalBindKey(bind[3], bind[1])
 				end
 			end
 		end
 	end
+
 end
 
 function KeyBindInfo:LoadGroup(bindgroup)
@@ -410,6 +418,35 @@ function KeyBindInfo:LoadOverrideGroup(bindgroup)
 	end
 end
 
+function KeyBindInfo:LoadConsoleCmdBinds()
+	self.BoundConsoleCmds = {}
+
+	for key in Main.GetOptionString("Keybinds/ConsoleKeys", ""):gmatch("%[^,]+") do
+		local cmdstring = Main.GetOptionString("Keybinds/ConsoleCmds/"..key, "")
+
+		if(cmdstring ~= "") then
+			self.BoundConsoleCmds[key] = cmdstring
+		end
+	end
+end
+
+function KeyBindInfo:SetConsoleCmdBind(key, cmdstring)
+	
+	if(self:IsKeyBound(key)) then
+		self:UnbindKey(key)
+	end
+
+	self.BoundConsoleCmds[key] = cmdstring
+	local keylist = {}
+
+	Main.SetOptionString("Keybinds/ConsoleCmds/"..key, cmdstring)
+
+	for key,consoleCmd in pairs(self.BoundConsoleCmds) do
+		keylist[#keylist+1] = key
+	end
+
+	Main.SetOptionString("Keybinds/ConsoleKeys", table.concat(keylist, ","))
+end
 
 function KeyBindInfo:ImportKeys()
 	
@@ -417,17 +454,17 @@ function KeyBindInfo:ImportKeys()
 	
 	for _,bindname in ipairs(InputEnum) do
 		local key = Main.GetOptionString("input/"..bindname, "")
-		
+
 		if(key ~= "") then
+			--ignore this bind if something else was bound to the same key
 			if(not keys[key]) then
 				keys[key] = bindname
-				Main.GetOptionString("Keybinds/Binds/"..bindname, key)
-			else
-				
+				Main.SetOptionString("Keybinds/Binds/"..bindname, key)
 			end
 		end
 	end
 end
+
 --[[
 --{BindName, Engine default key or false to always unbind this bind, new key or false to use the DefaultKey for the keybind}
 local BindFixs = {
@@ -459,13 +496,6 @@ function KeyBindInfo:FixBinds()
 	end
 end
 ]]--
-
-function KeyBindInfo:RegisterKeyBindGroup(label, keybinds)
-
-	if(self.Loaded) then
-		self:AddKeybindGroup(label, keybinds)
-	end
-end
 
 function KeyBindInfo:GetBindingDialogTable()
 	if(not self.Loaded and not self.LazyLoad) then
@@ -515,6 +545,10 @@ function KeyBindInfo:GetGlobalBoundKeys()
 	return self.BoundKeys
 end
 
+function KeyBindInfo:GetConsoleCmdBoundKeys()
+	return self.BoundConsoleCmds
+end
+
 function KeyBindInfo:IsBindOverrider(keybindname)
 	
 	local group = self.KeybindNameToOwnerGroup[keybindname]
@@ -528,7 +562,11 @@ end
 
 --
 function KeyBindInfo:IsKeyBound(key)
-	return self.BoundKeys[key] ~= nil
+	return self.BoundKeys[key] ~= nil and self.BoundConsoleCmds[key] ~= nil
+end
+
+function KeyBindInfo:IsKeyBoundToConsoleCmd(key)
+	return self.BoundConsoleCmds[key] ~= nil
 end
 
 function KeyBindInfo:GetBindSetToKey(key)
@@ -551,27 +589,20 @@ end
 
 function KeyBindInfo:SetKeybind(key, bindname, dontSave)
 
-	--just silently return if the key is already set to this bind
-	if(self.KeybindNameToKey[bindname] == key) then
-		return
-	end
-
-	if(self.RegisteredKeybinds[bindname] == nil and not self.EngineProcessed[bindname]) then
+	if(self.RegisteredKeybinds[bindname] == nil) then
 		error("SetKeyBind: keybind called \""..bindname.."\" does not exist")
 	end
 
 	local IsOverride = self:IsBindOverrider(bindname)
-	local IsRebind = false
 
 	if(not IsOverride) then
 		--if the keybind had a key already set to it clear the record of it in our BoundKeys table
 		if(self.KeybindNameToKey[bindname]) then
-			IsRebind = true
 			self.BoundKeys[self.KeybindNameToKey[bindname]] = nil
 		end
 
 		--if something else was already bound to this key clear it
-		if(self.BoundKeys[key]) then
+		if(self:IsKeyBound(key)) then
 			self:UnbindKey(key)
 		end
 	else
@@ -580,7 +611,7 @@ function KeyBindInfo:SetKeybind(key, bindname, dontSave)
 		local groupbind = self:GetBoundKeyGroup(key, group.Name)
 		
 		if(groupbind) then
-			self:ClearBind(groupbind)
+			self:ClearBind(groupbind, dontSave)
 		end
 	end
 
@@ -593,7 +624,7 @@ end
 
 function KeyBindInfo:UnbindKey(key, dontSave)
 	
-	if(self.BoundKeys[key] == nil) then
+	if(not self:IsKeyBound(key)) then
 			self:Log(1, "\""..key.."\" is already unbound")
 		return
 	end
@@ -602,20 +633,19 @@ function KeyBindInfo:UnbindKey(key, dontSave)
 
 	if(not dontSave) then
 		Main.SetOptionString("Keybinds/Binds/"..bindName, "")
-		Main.SetOptionBoolean("Keybinds/UnboundBinds/"..bindName, true)
 	end
 
 	self.KeybindNameToKey[bindName] = nil
 	self.BoundKeys[key] = nil
 end
 
-function KeyBindInfo:ClearBind(bindname)
+function KeyBindInfo:ClearBind(bindname, dontsave)
 
 	local IsOverride = self:IsBindOverrider(bindName)
 
-
-	Main.SetOptionString("Keybinds/Binds/"..bindName, "")
-
+	if(dontsave) then
+		Main.SetOptionString("Keybinds/Binds/"..bindName, "")
+	end
 
 	if(self.KeybindNameToKey[bindName] == nil) then
 		self:Log(1, "\""..bindname.."\" is already unbound")
@@ -752,7 +782,7 @@ local FriendlyNames = {
 local function BindReplacer(bindstring)
 	
 	--strip the @ symbolds from both ends of the stirng
-	local CleanBindName = string.sub(bindstring, 1, -1)
+	local CleanBindName = string.sub(bindstring, 2, -2)
 	
 	local key = KeyBindInfo:GetBoundKey(CleanBindName)
 	
@@ -765,6 +795,6 @@ local function BindReplacer(bindstring)
 	end
 end
 
-function KeyBindInfo_FillInBindKeys(bindname)
-	return string.gsub("(@[^@]@)", BindReplacer)
+function KeyBindInfo_FillInBindKeys(s)
+	return string.gsub(s, "(@[^@]+@)", BindReplacer)
 end
