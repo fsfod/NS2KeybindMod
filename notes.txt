@@ -1,0 +1,21 @@
+this replacement keybind system uses the "Input" flash object thats normaly used in the Binding Dialog to receive input events when this object is listening for
+input events it blocks all input events from getting sent to any other active flash and from the engines own internal keybind mapping system so we have recreate 
+the engines behavior for Move.commands and Move.move and feed it back in by hooking the OverrrideInput function of the local clients entity
+
+
+The Red I in the top corner means input events are currenly being tracked it should auto deactivate when you are entering chat text and when you open the in game menu
+
+"resetinput" console command causes keybind system to recreate its self
+
+Features
+	Commander Specific Bindings Added including View Scrolling binds, these binds can be bound to the same key as any non commander bind like
+	 your normal movment keys without issue.
+	"bind" console command added can only bind a key to a console command atm these binds are not persisted through map changes/game exits yet
+	Old ns1 Favorites F1,F2,F3,F4 make a welcom return if you have something else already bound to these keys you will have to go manualy bind them
+	Open Feedback key has been moved to F5 if its free, a entry in the binding menu has been added for it as well if you want to rebind it
+
+known Issues
+	When returning from the InGameMenu you might appear tobe briefly rooted for a second or so depending on server lag
+	The Bindings Dialog does't update when a keybind gets unbound when another keybind is set to its key, scrolling the keybind list will force an update
+	A Command Station needs tobe selected to use the commander Ammo and Health keybinds
+	ToggleFlashLight bind doesn't work right yet
