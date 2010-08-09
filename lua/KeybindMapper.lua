@@ -140,8 +140,6 @@ function KeybindMapper:FullResetState()
 	self:RefreshInputKeybinds()
 end
 
-Event.Hook("Console_resetinput", function() KeybindMapper:FullResetState() end)
-
 function KeybindMapper:RefreshInputKeybinds()
 
 	self.MovementVector = Vector(0,0,0)
@@ -227,13 +225,27 @@ function KeybindMapper:CheckKeybindChanges()
 	local changedKeybindsString = Main.GetOptionString("Keybinds/Changed", "")
 
 	if(changedKeybindsString ~= "") then
---		local changedKeybinds = Explode(changedKeybindsString, "@")
+		local changes = KeyBindInfo:ReloadKeyBindInfo(true)
 
-		KeyBindInfo:ReloadKeyBindInfo()
 		self:RefreshInputKeybinds()
+
+		if(next(changes)) then
+			self:NotifyKeybindChanges(changes)
+		end
 
 		Main.SetOptionString("Keybinds/Changed", "")
 	end
+end
+
+function KeybindMapper:NotifyKeybindChanges(changes)
+	
+	--reload the feedback flash overlay so it shows the correct key
+	if(changes["OpenFeedback"]) then
+		local player = Client.GetLocalPlayer()
+		
+		player:GetFlashPlayer(kFeedbackFlashIndex):Load(Player.kFeedbackFlash)
+  	player:GetFlashPlayer(kFeedbackFlashIndex):SetBackgroundOpacity(0)
+  end
 end
 
 function KeybindMapper:ResetMovment()
@@ -588,37 +600,6 @@ function KeybindMapper:SetKeyToConsoleCommand(key, commandstring)
 	self.ConsoleCmdKeys[key] = keybindAction
 	self.Keybinds[key] = keybindAction
 end
-
-function BindConsoleCommand(player, key, ...)
-	
-	if(not key or select('#', ...) == 0) then
-		Shared.Message("bind useage \"bind keyname consolecommand\"")
-		
-	 return
-	end
-	
-	local upperkey = key:upper()
-	local RealKeyName = false
-	
-	for i,keyname in ipairs(InputKeyNames) do
-		if(upperkey == keyname:upper()) then
-				RealKeyName = keyname
-			break
-		end
-	end
-
-	if(RealKeyName) then
-		local command = table.concat({...}, " ")
-		
-		KeyInfo:SetConsoleCmdBind(RealKeyName, command)
-		KeybindMapper:SetKeyToConsoleCommand(RealKeyName, command)
-	else
-		Shared.Message("bind:Unreconized key "..key)
-	end
-end
-
-Event.Hook("Console_bind",  BindConsoleCommand)
-
 
 --called by flash
 function IsInputTrackingDisabled()

@@ -22,124 +22,7 @@ Public functions:
 	string GetBoundKeyGroup(string key, string groupName)
 ]]--
 
-InputKeyNames = {
-	"Escape",
-	"1",
-	"2",
-	"3",
-	"4",
-	"5",
-	"6",
-	"7",
-	"8",
-	"9",
-	"0",
-	"Minus",
-	"Equals",
-	"Back",
-	"Tab",
-	"Q",
-	"W",
-	"E",
-	"R",
-	"T",
-	"Y",
-	"U",
-	"I",
-	"O",
-	"P",
-	"LeftBracket",
-	"RightBracket",
-	"Return",
-	"LeftControl",
-	"A",
-	"S",
-	"D",
-	"F",
-	"G",
-	"H",
-	"J",
-	"K",
-	"L",
-	"Semicolon",
-	"Apostrophe",
-	"Grave",
-	"LeftShift",
-	"Backslash",
-	"Z",
-	"X",
-	"C",
-	"V",
-	"B",
-	"N",
-	"M",
-	"Comma",
-	"Period",
-	"Slash",
-	"RightShift",
-	"Multiply",
-	"LeftAlt",
-	"Space",
-	"Capital",
-	"F1",
-	"F2",
-	"F3",
-	"F4",
-	"F5",
-	"F6",
-	"F7",
-	"F8",
-	"F9",
-	"F10",
-	"NumLock",
-	"Scroll",
-	"NumPad7",
-	"NumPad8",
-	"NumPad9",
-	"Subtract",
-	"NumPad4",
-	"NumPad5",
-	"NumPad6",
-	"Add",
-	"NumPad1",
-	"NumPad2",
-	"NumPad3",
-	"NumPad0",
-	"Decimal",
-	"F11",
-	"F12",
-	"F13",
-	"F14",
-	"F15",
-	"NumPadEquals",
-	"NumPadEnter",
-	"RightControl",
-	"Divide",
-	"PrintScreen",
-	"RightAlt",
-	"Pause",
-	"Home",
-	"Up",
-	"PageUp",
-	"Left",
-	"Right",
-	"End",
-	"Down",
-	"PageDown",
-	"Insert",
-	"Delete",
-	"LeftWindows",
-	"RightWindows",
-	"AppMenu",
-	"MouseX",
-	"MouseY",
-	"MouseZ", --Scroll Wheel
-	"MouseButton0", 
-	"MouseButton1",
-	"MouseButton2",
-	"MouseButton3",
-	"MouseButton4",
-}
+
 
 
 InputEnum = {
@@ -324,13 +207,41 @@ function KeyBindInfo:MainVMLazyLoad()
 	end
 end
 
-function KeyBindInfo:ReloadKeyBindInfo()
+function KeyBindInfo:ReloadKeyBindInfo(returnChanges)
+	
+	local old = self.KeybindNameToKey
+	
 	self.KeybindNameToKey = {}
 	self.BoundKeys = {}
+	self.BoundConsoleCmds = {}
 
 	self:LoadAndValidateSavedKeyBinds()
 	self.Loaded = true
 	self.LazyLoad = nil
+	
+	if(returnChanges) then
+		--mark unchanged keys so we can later nil them
+		for bindname,key in pairs(old) do
+			if(self.KeybindNameToKey[bindname] == key) then
+				old[bindname] = false
+			end
+		end
+
+		--find new keys added
+		for bindname,key in pairs(self.KeybindNameToKey) do
+			if(old[bindname] == nil) then
+				old[bindname] = ""
+			end
+		end
+		
+		for bindname,key in pairs(old) do
+			if(key == false) then
+				old[bindname] = nil
+			end
+		end
+		
+		return old
+	end
 end
 
 function KeyBindInfo:AddDefaultKeybindGroups()
@@ -421,31 +332,54 @@ end
 function KeyBindInfo:LoadConsoleCmdBinds()
 	self.BoundConsoleCmds = {}
 
-	for key in Main.GetOptionString("Keybinds/ConsoleKeys", ""):gmatch("%[^,]+") do
-		local cmdstring = Main.GetOptionString("Keybinds/ConsoleCmds/"..key, "")
+	local consolekeys = Main.GetOptionString("Keybinds/ConsoleKeys", "")
 
-		if(cmdstring ~= "") then
-			self.BoundConsoleCmds[key] = cmdstring
+	if(consolekeys ~= "") then
+		for key in consolekeys:gmatch("[^,]+") do
+			local cmdstring = Main.GetOptionString("Keybinds/ConsoleCmds/"..key, "")
+
+			if(cmdstring ~= "") then
+				self.BoundConsoleCmds[key] = cmdstring
+			end
 		end
 	end
 end
 
 function KeyBindInfo:SetConsoleCmdBind(key, cmdstring)
-	
+
 	if(self:IsKeyBound(key)) then
 		self:UnbindKey(key)
 	end
 
 	self.BoundConsoleCmds[key] = cmdstring
-	local keylist = {}
 
 	Main.SetOptionString("Keybinds/ConsoleCmds/"..key, cmdstring)
 
-	for key,consoleCmd in pairs(self.BoundConsoleCmds) do
-		keylist[#keylist+1] = key
-	end
+	self:SaveConsoleCmdKeyList()
+end
 
-	Main.SetOptionString("Keybinds/ConsoleKeys", table.concat(keylist, ","))
+function KeyBindInfo:ClearConsoleCmdBind(key)
+
+	self.BoundConsoleCmds[key] = nil
+	Main.SetOptionString("Keybinds/ConsoleCmds/"..key, "")
+
+	self:SaveConsoleCmdKeyList()
+end
+
+function KeyBindInfo:SaveConsoleCmdKeyList()
+
+
+	if(next(self.BoundConsoleCmds)) then
+		local keylist = {}
+
+		for key,consoleCmd in pairs(self.BoundConsoleCmds) do
+			keylist[#keylist+1] = key
+		end
+
+		Main.SetOptionString("Keybinds/ConsoleKeys", table.concat(keylist, ",")..",")
+	else
+		Main.SetOptionString("Keybinds/ConsoleKeys", "")
+	end
 end
 
 function KeyBindInfo:ImportKeys()
@@ -562,7 +496,7 @@ end
 
 --
 function KeyBindInfo:IsKeyBound(key)
-	return self.BoundKeys[key] ~= nil and self.BoundConsoleCmds[key] ~= nil
+	return self.BoundKeys[key] ~= nil or self.BoundConsoleCmds[key] ~= nil
 end
 
 function KeyBindInfo:IsKeyBoundToConsoleCmd(key)
@@ -617,7 +551,7 @@ function KeyBindInfo:SetKeybind(key, bindname, dontSave)
 
 	self:InternalBindKey(key, bindname, IsOverride)
 
-	if(not dontSave) then		
+	if(not dontSave) then	
 		Main.SetOptionString("Keybinds/Binds/"..bindname, key)
 	end
 end
@@ -629,17 +563,21 @@ function KeyBindInfo:UnbindKey(key, dontSave)
 		return
 	end
 
-	local bindName = self.BoundKeys[key]
+	if(not self:IsKeyBoundToConsoleCmd(key)) then
+		local bindName = self.BoundKeys[key]
 
-	if(not dontSave) then
-		Main.SetOptionString("Keybinds/Binds/"..bindName, "")
+		if(not dontSave) then
+			Main.SetOptionString("Keybinds/Binds/"..bindName, "")
+		end
+
+		self.KeybindNameToKey[bindName] = nil
+		self.BoundKeys[key] = nil
+	else
+		self:ClearConsoleCmdBind(key)
 	end
-
-	self.KeybindNameToKey[bindName] = nil
-	self.BoundKeys[key] = nil
 end
 
-function KeyBindInfo:ClearBind(bindname, dontsave)
+function KeyBindInfo:ClearBind(bindName, dontsave)
 
 	local IsOverride = self:IsBindOverrider(bindName)
 
@@ -648,7 +586,7 @@ function KeyBindInfo:ClearBind(bindname, dontsave)
 	end
 
 	if(self.KeybindNameToKey[bindName] == nil) then
-		self:Log(1, "\""..bindname.."\" is already unbound")
+		self:Log(1, "\""..bindName.."\" is already unbound")
 	else
 		if(IsOverride) then
 			self.BoundKeys[self.KeybindNameToKey[bindName]] = nil
@@ -737,16 +675,22 @@ function KeyBindInfo:GetGroupBoundKeys(groupname)
 	return keybinds
 end
 
-function KeyBindInfo:ResetKeybindsToDefaults()
-	
+function KeyBindInfo:ResetKeybinds(writeDefaults)
+
+	Main.SetOptionString("Keybinds/ConsoleKeys", "")
+	Main.SetOptionString("Keybinds/ConsoleCmds", "")
+
 	for _,bindgroup in ipairs(self.KeybindGroups) do
 		for _,bind in ipairs(bindgroup.Keybinds) do
-			if(bind[3]) then
+			if(writeDefaults and bind[3]) then
 				Main.SetOptionString("Keybinds/Binds/"..bind[1], bind[3])
-				self:InternalBindKey(bind[3], bind[1], bindgroup.OverrideGroup)
+			else
+				Main.SetOptionString("Keybinds/Binds/"..bind[1], "")
 			end
 		end
 	end
+	
+	self:ReloadKeyBindInfo()
 end
 
 function KeyBindInfo:Log(level, msg)
@@ -761,18 +705,6 @@ function KeyBindInfo:Log(level, msg)
 		print(msg)
 	end
 end
-
-
-if(Shared and Client) then
-	function DumpBinds()
-		for key,bind in pairs(KeyBindInfo:GetGlobalBoundKeys()) do
-			Shared.Message(key.." = "..bind)
-		end
-	end
-	
-	Event.Hook("Console_dumpbinds", DumpBinds)
-end
-
 
 local FriendlyNames = {
 	MouseButton0 = "Left Click",

@@ -42,8 +42,13 @@ local UnboundKeyLabel = ""
 local LazyLoadMode = true
 ChangedKeybinds = {}
 
+--clear any data left in our cross vm communication from previous sessions
 if(Main.GetOptionString("Keybinds/Changed", "") ~= "") then
 	Main.SetOptionString("Keybinds/Changed", "")
+end
+
+if(Main.GetOptionString("Keybinds/InGameChanged", "") ~= "") then
+	Main.SetOptionString("Keybinds/InGameChanged", "")
 end
 --
 -- Get the value of the input control
@@ -84,7 +89,13 @@ end
 -- controlId, "separator", unused, unused
 --/
 function BindingsUI_GetBindingsData()
-   return KeyBindInfo:GetBindingDialogTable()   
+	
+	if(Main.GetOptionString("Keybinds/InGameChanged", "") ~= "") then
+		KeyBindInfo:ReloadKeyBindInfo()
+		Main.SetOptionString("Keybinds/InGameChanged", "")
+	end
+
+  return KeyBindInfo:GetBindingDialogTable()   
 end
 
 --
