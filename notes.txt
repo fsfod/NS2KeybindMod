@@ -1,23 +1,31 @@
-this replacement keybind system uses the "Input" flash object thats normaly used in the Binding Dialog to receive input events when this object is listening for
-input events it blocks all input events from getting sent to any other active flash and from the engines own internal keybind mapping system so we have recreate 
-the engines behavior for Move.commands and Move.move and feed it back in by hooking the OverrrideInput function of the local clients entity
-
-
-The Red I in the top corner indicates input events are currenly being tracked it should auto deactivate when you are entering chat text and when you open the in game menu
-"resetkeybinds" will reset keybinds to there defaults 
-"resetinput" console command causes keybind system to recreate its self
+This mod replaces keybind system by using the "Input" flash object thats normally used in the Binding Option page. 
 
 Features
-	Auto unbinding of conflicting keys When setting a binds key in the Bindings Dialog
-	Commander Specific Bindings Added including View Scrolling binds, these binds can be bound to the same key as any non commander bind like
-	 your normal movment keys without issue.
-	"bind" console command added can only bind a key to a console command atm
-	Old ns1 Favorites F1,F2,F3,F4 make a welcom return if you have something else already bound to these keys you will have to go manualy bind them
-	Open Feedback key has been moved to F5 if its free, a entry in the binding menu has been added for it as well if you want to rebind it
-	 the feedback flash overlay will also instantly update to show what the current feedback keybind is 
+[list]
+[*]Commander Specific Bindings Added including View Scrolling binds, these binds can be bound to the same key as any non commander bind like
+your normal movement keys without issue.
+[*]Old ns1 Favorites F1,F2,F3,F4 make a welcome return if you have something else already bound to these keys you will have to go manually bind them
+[*]"bind" console command added can only bind a key to a console command atm
+[*]Open Feedback key can now be rebound its default is now F5 if its free. The feedback flash overlay will also instantly update to show what the current 
+feedback keybind is.
+[*]Auto unbinding of conflicting keys When setting a binds key in the Bindings Dialog
+[/list]
 
-known Issues
-	When returning from the InGameMenu you might appear tobe briefly rooted for a second or so depending on server lag 
-	The Bindings Dialog does't update when a keybind gets unbound when another keybind is set to its key, scrolling the keybind list will force an update
-	A Command Station needs tobe selected to use the commander Ammo and Health keybinds
-	ToggleFlashLight bind doesn't work right yet
+Using this Mod:
+[indent]To use this mod copy keybinds.zip to your natural selection 2 directory and create a shortcut to ns2.exe then open the shortcuts properties and
+ add "-game keybinds.zip" without the quotes to the end of the target path.When you run the game for first time with this mod copies your keybinds and
+ these duplicates are then used by this mod. The originals will never be touched so can run the game without this mod active and your keybinds will behave
+ like they normally did.[/indent]
+
+Implementation details:
+[indent]The input events from the Input flash object are feed into to the lua through the KeybindMapper object which maps the input events to keybind actions.
+When Input flash object is listening for input events it blocks all input events from getting sent to any other active flash and to the engines own internal keybind mapping system so we have recreate the engines behavior for Move.commands and Move.move and feed it back in by hooking the OverrrideInput function of the local clients entity
+and we also have to disable the Input object when chat text is being entered so the chat flash will receive key down events.
+[/indent]
+Known Issues
+[list]
+[*]When returning from the InGameMenu you might appear tobe briefly rooted for a second or so depending on server lag 
+[*]The Bindings Dialog doesn't update when a keybind gets unbound when another keybind is set to its key, scrolling the keybind list will force an update
+[*]To use the commander Ammo and Health keybinds a Command Station needs tobe selected 
+[*]Any keybinds that are not letters will still work when the console is open because of how the console filters input events
+[/list]

@@ -5,6 +5,7 @@ Shared.LinkClassToMap = function(classname, entityname, networkvars)
 	if(classname == "Player") then
 		local original = Player.OverrideInput
 		Player.OverrideInput = function(self, input)
+			KeybindMapper:InputTick()
 			input.move = KeybindMapper.MovementVector
 			input.commands = KeybindMapper.MoveInputBitFlags
 			original(self, input)

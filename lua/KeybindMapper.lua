@@ -27,7 +27,6 @@ local InputKeybinds = {
 	MovementModifier = true,
 	Minimap = true,
 	Buy = true,
-	ToggleFlashlight = true,
 	Weapon1 = true,
 	Weapon2 = true,
 	Weapon3 = true,
@@ -67,18 +66,21 @@ for _,inputname in ipairs(InputEnum) do
 end
 
 KeybindMapper = {
-	Keybinds = {}, 
-	MovementVector = Vector(0,0,0),
+	Keybinds = {},
+	FilteredKeys = {},
+
 	InputBitActions = {},
 	MovmentVectorActions = {},
 	KeybindActions = {},
+
+	MovementVector = Vector(0,0,0),
 	MoveInputBitFlags = 0,
-	FilteredKeys = {},
-	
+	RunningActions = {},
+
 	ChatOpen = false,
 	InGameMenuOpen = false,
 	ConsoleOpen = false,
-	
+
 	CtlDown = false,
 	ShiftDown = false,
 	AltDown = false,
@@ -87,7 +89,6 @@ KeybindMapper = {
 -- change this to true if you want all keybinds tobe ignored when the console is open
 -- this is disabled by default because there issues with dectecting when the console is open
 	IgnoreConsoleState = true,
-	
 }
 
 function KeybindMapper:Init()
@@ -124,26 +125,30 @@ function KeybindMapper:FullResetState()
 	self.fp:Load("ui/input.swf")
 	self.fp:SetBackgroundOpacity(0)
 	
-	self.Keybinds = {}
-	self.MovementVector = Vector(0,0,0)
-	self.MoveInputBitFlags = 0
+	self:ResetDynamicState()
 
 	self.ChatOpen = false
 	self.InGameMenuOpen = false
 	self.ConsoleOpen = false
 	
-	self.CtlDown = false
-	self.ShiftDown = false
-	self.AltDown = false
 	self.OverrideGroups = {}
 	
 	self:RefreshInputKeybinds()
 end
 
-function KeybindMapper:RefreshInputKeybinds()
-
+function KeybindMapper:ResetDynamicState()
 	self.MovementVector = Vector(0,0,0)
 	self.MoveInputBitFlags = 0
+	self.RunningActions = {}
+	
+	self.CtlDown = false
+	self.ShiftDown = false
+	self.AltDown = false
+end
+
+function KeybindMapper:RefreshInputKeybinds()
+
+	self:ResetDynamicState()
 
 	self.Keybinds = {}
 
@@ -156,7 +161,6 @@ function KeybindMapper:RefreshInputKeybinds()
 	end
 
 	self.ConsoleKey = KeyBindInfo:GetBoundKey("ToggleConsole") or "Grave"
-	
 
 	self.ConsoleCmdKeys = {}
 	for key,cmd in pairs(KeyBindInfo:GetConsoleCmdBoundKeys()) do
@@ -190,6 +194,30 @@ function KeybindMapper:SetupMoveVectorAndInputBitActions()
 		 self.InputBitActions[Move[bitname]] = action
 		 self:RegisterActionToBind(bindname, action)
 	end
+
+	local ToggleFlashlight = {
+		InputBit = bitname,
+		OnDown = function()
+			KeybindMapper.MoveInputBitFlags = bit.bor(KeybindMapper.MoveInputBitFlags, Move.ToggleFlashlight)
+			
+			--really we should check for duplicates here
+			table.insert(self.RunningActions,{
+				count = 0,
+		 		Tick = function(state)
+		 			state.count = state.count+1
+		 			if(state.count == 2) then
+							KeybindMapper.MoveInputBitFlags = bit.band(KeybindMapper.MoveInputBitFlags, bit.bnot(Move.ToggleFlashlight))
+						return true
+					else
+						return false
+					end
+				end
+			})
+		end,
+	}
+
+	self.InputBitActions[Move.ToggleFlashlight] = ToggleFlashlight
+	self:RegisterActionToBind("ToggleFlashlight", ToggleFlashlight)
 
 	for bindname,movdir in pairs(MovementKeybinds) do
 		local action = KeybindMapper.CreateActionHelper(true, false, self,  movdir)
@@ -484,6 +512,24 @@ function KeybindMapper:HandleMovmentVector(movedir, keydown)
 	end
 end
 
+function KeybindMapper:InputTick()
+	
+	if(#self.RunningActions == 0) then
+		return
+	end
+
+	local i, count = 1,#self.RunningActions
+
+	while count ~= 0 and i <= count do
+		if(self.RunningActions[i]:Tick()) then
+			table.remove(self.RunningActions, i)
+			count = count-1
+		else
+			i = i+1
+		end
+	end
+end
+
 function KeybindMapper:LinkBindToFunction(bindname, func, updown, ...)
 	
 	local keybindEntry = {
@@ -570,9 +616,9 @@ function KeybindMapper:GetDescriptionForBoundKey(key)
 	if(action.InputBit) then
 		return "Move.input bit Keybind:"..action.InputBit
 	end
-	
+
 	local action = self.Keybinds[key]
-	
+
 	if(action) then
 		if(action.ConsoleCommand) then
 			if(action.BindName) then
