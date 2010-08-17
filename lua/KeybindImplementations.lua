@@ -8,6 +8,9 @@ KeybindMapper:LinkBindToConsoleCmd("JoinMarines", "j1")
 KeybindMapper:LinkBindToConsoleCmd("JoinAliens", "j2")
 KeybindMapper:LinkBindToConsoleCmd("ReadyRoom", "rr")
 
+KeybindMapper:LinkBindToConsoleCmd("NextIdleWorker", "gotoidleworker")
+
+--todo find a way to get team member count and use it here
 local function JoinRandomTeam()
 	if(NetworkRandom() < .5) then
 	  Shared.ConsoleCommand("j1")
@@ -21,17 +24,24 @@ KeybindMapper:LinkBindToFunction("JoinRandom", JoinRandomTeam)
 function CheckSelectedCommandStructure()
 	local player = Client.GetLocalPlayer()
 	
-	local selectedents = player:GetSelection()
+	local selectedEnts = player:GetSelection()
 	
-	if(not selectedents[1] or not Shared.GetEntity(selectedents[1]) or not Shared.GetEntity(selectedents[1]):isa("CommandStructure")) then
-		local entId = FindNearestEntityId("CommandStructure", player:GetOrigin())
-    local commandStructure = Shared.GetEntity(entId)
+	for k,entInfo in pairs(selectedEnts) do
+		local entity = Shared.GetEntity(entInfo[1])
+
+		if(entity and entity:isa("CommandStructure")) then
+			
+		end
+	end
+	
+	if(true) then
+		return
+	end
+	
+	if(#selectedents ~=  or not Shared.GetEntity(selectedents[1]) or not Shared.GetEntity(selectedents[1]):isa("CommandStructure")) then
     
-    if commandStructure ~= nil then
-    	--only trace ray click selection is syned to the server it seems atm :(
-			--player:ClearSelection()
-			--player:SetSelection(entId)
-			return false
+    if player:SelectHotkeyGroup(1) then
+			return true
 		else
 			Shared.Message("Failed to find CommandStructure to select")
 		 return false

@@ -6,15 +6,15 @@ Shared.LinkClassToMap = function(classname, entityname, networkvars)
 		local original = Player.OverrideInput
 		Player.OverrideInput = function(self, input)
 			KeybindMapper:InputTick()
-			input.move = KeybindMapper.MovementVector
-			input.commands = KeybindMapper.MoveInputBitFlags
+			KeybindMapper:FillInMove(input, false)
 			original(self, input)
 		end
 		
 	elseif(classname == "Commander") then
 		local original = Commander.OverrideInput
 		Commander.OverrideInput = function(self, input)
-			input.commands = KeybindMapper.MoveInputBitFlags
+			KeybindMapper:InputTick()
+			KeybindMapper:FillInMove(input, true)
 			original(self, input)
 		end
 		
@@ -40,7 +40,6 @@ Shared.LinkClassToMap = function(classname, entityname, networkvars)
 		LinkClassToMap(classname, entityname)
 	end
 end
-
 
 Event.Hook("MapPostLoad", function()
 	ShowInGameMenu = function()

@@ -116,15 +116,12 @@ InputKeyNames = {
 	"MouseButton2",
 	"MouseButton3",
 	"MouseButton4",
+	"MouseButton5",
+	"MouseButton6",
+	"MouseButton7",
 }
 
-function BindConsoleCommand(player, key, ...)
-	
-	if(not key or select('#', ...) == 0) then
-		Shared.Message("bind: useage \"bind keyname consolecommand\"")
-	 return
-	end
-
+local function FindRealKeyName(key)
 	local upperkey = key:upper()
 	local RealKeyName = false
 
@@ -134,20 +131,84 @@ function BindConsoleCommand(player, key, ...)
 			break
 		end
 	end
-
-	if(RealKeyName) then
-		local command = table.concat({...}, " ")
-
-		KeyBindInfo:SetConsoleCmdBind(RealKeyName, command)
-		KeybindMapper:SetKeyToConsoleCommand(RealKeyName, command)
-
-		Main.SetOptionString("Keybinds/InGameChanged", "1")
-	else
-		Shared.Message("bind: Unreconized key "..key)
-	end
+	
+	return RealKeyName
 end
 
-Event.Hook("Console_bind",  BindConsoleCommand)
+function Bind_ConsoleCommand(player, key, bindname)
+	
+	if(not key or not bindname) then
+		Shared.Message("bind: useage \"bind keyname bindname\"")
+	 return
+	end
+
+	local realKeyName = FindRealKeyName(key)
+	
+	if(not realKeyName) then
+			Shared.Message("bind: Unreconized key "..key)
+		return 
+	end
+	
+	local realBindName = KeyBindInfo:FindBind(bindname)
+	
+	if(not realBindName) then
+			Shared.Message("bind: Unreconized bindname "..bindname)
+		return 
+	end
+	
+	if(KeyBindInfo:IsBindOverrider(realBindName)) then
+		local bindgroup = KeyBindInfo:GetBindsGroup(realBindName)
+		local conflict = KeyBindInfo:GetBoundKeyGroup(RealKeyName, bindgroup)
+
+		if(conflict) then
+			Shared.Message(string.format("bind: Conflicting bind \"%s\" was unbound in override group %s", conflict, bindgroup))
+		end
+	elseif(KeyBindInfo:IsKeyBound(RealKeyName)) then
+		if(KeyBindInfo:IsKeyBoundToConsoleCmd(RealKeyName)) then
+			Shared.Message(string.format("bind: Conflicting ConsoleCmd bind \"%s\" was unbound", KeyBindInfo:GetBoundConsoleCmd(RealKeyName)))
+		else
+			Shared.Message(string.format("bind: Conflicting bind \"%s\" was unbound", KeyBindInfo:GetBindSetToKey(RealKeyName)))
+		end
+	end
+
+	KeybindMapper:ChangeKeybind(realBindName, realKeyName)
+	Main.SetOptionString("Keybinds/InGameChanged", "1")
+end
+
+Event.Hook("Console_bind",  Bind_ConsoleCommand)
+
+function BindC_ConsoleCommand(player, key, ...)
+	
+	if(not key or select('#', ...) == 0) then
+		Shared.Message("bindc: useage \"bindc keyname consolecommand\"")
+	 return
+	end
+
+	local RealKeyName = FindRealKeyName(key)
+
+	if(not RealKeyName) then
+			Shared.Message("bindc: Unreconized key "..key)
+		return 
+	end
+
+	local command = table.concat({...}, " ")
+	local oldbind
+
+	if(KeyBindInfo:IsKeyBound(RealKeyName)) then
+		if(not KeyBindInfo:IsKeyBoundToConsoleCmd(RealKeyName)) then
+			oldbind = KeyBindInfo:GetBindSetToKey(RealKeyName)
+			Shared.Message(string.format("bindc: Conflicting bind \"%s\" was unbound", oldbind))
+		else
+			Shared.Message(string.format("bindc: Conflicting ConsoleCmd bind \"%s\" was unbound", KeyBindInfo:GetBoundConsoleCmd(RealKeyName)))
+		end
+	end
+
+	KeybindMapper:BindConsoleCommand(RealKeyName, command)
+
+	Main.SetOptionString("Keybinds/InGameChanged", "1")
+end
+
+Event.Hook("Console_bindc",  BindC_ConsoleCommand)
 
 
 Event.Hook("Console_resetinput", function() KeybindMapper:FullResetState() end)
