@@ -96,11 +96,6 @@ for _,inputname in ipairs(InputEnum) do
 	InputBitToName[Move[inputname]] = inputname
 end
 
-enum 'HotkeyPriorityMode' {
-	UseShift,
-	UseCtl,
-}
-
 KeybindMapper = {
 	Keybinds = {},
 	FilteredKeys = {},
@@ -112,6 +107,7 @@ KeybindMapper = {
 	MovementVector = Vector(0,0,0),
 	MoveInputBitFlags = 0,
 	RunningActions = {},
+	EatKeyUp = {},
 
 	ChatOpen = false,
 	InGameMenuOpen = false,
@@ -177,6 +173,9 @@ function KeybindMapper:ResetDynamicState()
 	self.MovementVector = Vector(0,0,0)
 	self.MoveInputBitFlags = 0
 	self.RunningActions = {}
+	self.EatKeyUp = {}
+	
+	self.KeyStillDown = {}
 	
 	self.CtlDown = false
 	self.ShiftDown = false
@@ -239,22 +238,14 @@ function KeybindMapper:SetupMoveVectorAndInputBitActions()
 	local ToggleFlashlight = {
 		InputBit = bitname,
 		OnDown = function()
-			KeybindMapper.MoveInputBitFlags = bit.bor(KeybindMapper.MoveInputBitFlags, Move.ToggleFlashlight)
+			KeybindMapper:HandleInputBit(Move.ToggleFlashlight, true)
 			
-			--really we should check for duplicates here
-			table.insert(self.RunningActions,{
-				count = 0,
-		 		Tick = function(state)
-		 			state.count = state.count+1
-		 			if(state.count == 2) then
+			self:AddTickAction(function(state)
+		 			if(state.TickCount == 2) then
 		 					KeybindMapper:HandleInputBit(Move.ToggleFlashlight, false)
-							--KeybindMapper.MoveInputBitFlags = bit.band(KeybindMapper.MoveInputBitFlags, bit.bnot(Move.ToggleFlashlight))
 						return true
-					else
-						return false
 					end
-				end
-			})
+				end, nil, "FlashLight", "NoReplace")
 		end,
 	}
 
@@ -319,44 +310,26 @@ function KeybindMapper:NotifyKeybindChanges(changes, fromFullReload)
 end
 
 
-function KeybindMapper:UpdateKey(key)	
-	local lastFound
+function KeybindMapper:UpdateKey(key)
+	local ConsoleCmd = KeyBindInfo:GetBoundConsoleCmd(key)
 
-	--try to find the newest OverrideGroup with this key listed
-	for _,group in ipairs(self.OverrideGroups) do
-		local bind = group.Keys[key]
-		if(bind and self.KeybindActions[bind]) then
-			 lastFound = self.KeybindActions[bind]
-		end
-	end
-
-	if(lastFound) then
-		self:InternalSetKeyAction(key, lastFound)
+	if(ConsoleCmd) then
+		self:SetKeyToConsoleCommand(key, ConsoleCmd)
 	else
-	--non of OverrideGroups had the key so just reset to the global bind if one is set to this key	
-	 local ConsoleCmd = KeyBindInfo:GetBoundConsoleCmd(key)
+	 local bindname = KeyBindInfo:GetBindSetToKey(key)
 
-		if(ConsoleCmd) then
-			self:SetKeyToConsoleCommand(key, ConsoleCmd)
+		if(bindname ~= nil and self.KeybindActions[bindname]) then
+			self:InternalSetKeyAction(key, self.KeybindActions[bindname])
 		else
-		 local bindname = KeyBindInfo:GetBindSetToKey(key)
-
-			if(bindname ~= nil and self.KeybindActions[bindname]) then
-				self:InternalSetKeyAction(key, self.KeybindActions[bindname])
-			else
-				self:InternalSetKeyAction(key, nil)
-			end
+			self:InternalSetKeyAction(key, nil)
 		end
 	end
 end
 
 function KeybindMapper:BindConsoleCommand(key, command)
-
 	local oldbind = KeyBindInfo:GetBindSetToKey(key)
 
 	KeyBindInfo:SetConsoleCmdBind(key, command)
-	self:SetKeyToConsoleCommand(key, command)
-
 	self:UpdateKey(key)
 
 	if(oldbind) then
@@ -389,23 +362,18 @@ function KeybindMapper:ChangeKeybind(bindname, newkey)
 		if(OverrideGroup) then
 			if(newkey) then
 				OverrideGroup.Keys[newkey] = bindname
-				self:UpdateKey(newkey)
 			end
 
 			if(oldkey and oldkey ~= "") then
 				OverrideGroup.Keys[oldkey] = nil
-				self:UpdateKey(oldkey)
 			end
 		end
 	else
-		if(not oldkey and oldkey == "") then
-			--only clear out the old key if its not been taken by an override key
-			if(self.Keybinds[oldkey] and self.Keybinds[oldkey].BindName == bindname) then
-				self:InternalSetKeyAction(oldkey, nil)
-			end
+		if(oldkey and oldkey ~= "" and self.Keybinds[oldkey]) then
+			self:UpdateKey(oldkey)
 		end
 
-		if(newkey) then
+		if(newkey and newkey ~= "") then
 			self:UpdateKey(newkey)
 		end
 	end
@@ -445,6 +413,7 @@ function KeybindMapper:ChatClosed()
 end
 
 function KeybindMapper:OnCommander(CommanderSelf)
+	self.IsCommander = true
 	self:ActivateKeybindGroup("CommanderShared")
 	
 	if(CommanderSelf:isa("MarineCommander")) then
@@ -452,20 +421,23 @@ function KeybindMapper:OnCommander(CommanderSelf)
 	else
 		self:ActivateKeybindGroup("AlienCommander")
 	end
+	
+	self:ResetDynamicState()
 end
 
 function KeybindMapper:OnUnCommander()
+	self.IsCommander = false
 	self:DeactivateKeybindGroup("CommanderShared")
 	self:DeactivateKeybindGroup("MarineCommander")
 	self:DeactivateKeybindGroup("AlienCommander")
+
+	self:ResetDynamicState()
 end
 
 function KeybindMapper:ActivateKeybindGroup(groupname)
 	
-	for i,group in ipairs(self.OverrideGroups) do
-		if(group.GroupName == groupname) then
-			error("KeybindMapper:ActivateKeybindGroup group \""..groupname.."\" is already active")
-		end
+	if(self.OverrideGroupLookup[groupname]) then
+		error("KeybindMapper:ActivateKeybindGroup group \""..groupname.."\" is already active")
 	end
 	
 	local boundkeys = KeyBindInfo:GetGroupBoundKeys(groupname)
@@ -474,20 +446,12 @@ function KeybindMapper:ActivateKeybindGroup(groupname)
 
 	self.OverrideGroupLookup[groupname] = group
 	table.insert(self.OverrideGroups, group)
-	
-	for key,bindname in pairs(boundkeys) do
-		local action = self.KeybindActions[bindname]
-		
-		if(action) then
-			self:InternalSetKeyAction(key, action)
-		end
-	end
 end
 
 function KeybindMapper:DeactivateKeybindGroup(groupname)
-	
+
 	local index
-	
+
 	for i,group in ipairs(self.OverrideGroups) do
 		if(group.GroupName == groupname) then
 			 index = i
@@ -500,18 +464,8 @@ function KeybindMapper:DeactivateKeybindGroup(groupname)
 		return
 	end
 
-	local OverrideGroup = self.OverrideGroups[index]
-	self.OverrideGroupLookup[OverrideGroup.GroupName] = nil
 	table.remove(self.OverrideGroups, index)
-
-	for key,bindname in pairs(OverrideGroup.Keys) do
-		local action = self.KeybindActions[bindname]
-
-		--check to make sure there was a action for our bind and that another OverrideGroup hasn't replaced our key
-		if(action and self.Keybinds[key] == action) then
-			self:UpdateKey(key)
-		end
-	end
+	self.OverrideGroupLookup[groupname] = nil
 end
 
 local function IsValidHotkeyActive(key)
@@ -542,18 +496,28 @@ end
 
 function KeybindMapper:FindKeysAction(key)
 	
-	for i = #self.OverrideGroups,1 do
+	local i = #self.OverrideGroups
+	
+	while i ~= 0 do
 		local bindname = self.OverrideGroups[i].Keys[key]
-
+  	
 		if(bindname and self.KeybindActions[bindname]) then
-			return self.KeybindActions[bindname], self.OverrideGroups[i].Name
+			return self.KeybindActions[bindname], self.OverrideGroups[i].GroupName
 		end
+		i = i-1
 	end
 
-	return self.Keys[key], false
+	return self.Keybinds[key], false
 end
 
 function KeybindMapper:OnKeyDown(key)
+
+	--don't trigger any actions if the key being held down and were just getting key repeats for it
+	if(self.KeyStillDown[key]) then
+		return
+	end
+
+	self.KeyStillDown[key] = true
 
 	--The Engines Console input event handler should be filtering all key input events when the console is open
 	--so they don't get sent to other input handlers but doesn't for some dumb reason
@@ -587,14 +551,22 @@ function KeybindMapper:OnKeyDown(key)
 		end
 	end
 
-	local action = self.Keybinds[key]
-	local validhotkey = HotkeyPassThrough[key] and IsValidHotkeyActive(Move[key])
+	local action,overrideGroup = self:FindKeysAction(key)
 
 	if(action) then
-		if(validhotkey and self.ShiftDown) then
-			self.HotKey = key
-		else
+		if(not self.IsCommander) then
 			self:ActivateAction(action, key, true)
+		else
+	 		local commanderUseable = overrideGroup or action.UserConsoleCmdBind or KeyBindInfo.CommanderUsableGlobalBinds[action.BindName]
+
+			if(HotkeyPassThrough[key] and IsValidHotkeyActive(Move[key]) and (self.ShiftDown or not commanderUseable)) then
+				self.HotKey = key
+				self.EatKeyUp[key] = true
+			else
+				if(commanderUseable) then
+					self:ActivateAction(action, key, true)
+				end
+			end
 		end
 	else
 		if(HotkeyPassThrough[key]) then
@@ -604,6 +576,8 @@ function KeybindMapper:OnKeyDown(key)
 end
 
 function KeybindMapper:OnKeyUp(key)
+
+	self.KeyStillDown[key] = nil
 
 	if(key == "LeftControl" or key == "RightControl") then
 		self.CtlDown = false
@@ -617,10 +591,16 @@ function KeybindMapper:OnKeyUp(key)
 		self.AltDown = false
 	end
 
-	local action = self.Keybinds[key]
+	local action, overrideGroup = self:FindKeysAction(key)
 
-	if(action) then
-		self:ActivateAction(action, key, false)
+	if(action and not self.EatKeyUp[key]) then
+		if(not self.IsCommander or overrideGroup or action.UserConsoleCmdBind or KeyBindInfo.CommanderUsableGlobalBinds[action.BindName]) then
+			self:ActivateAction(action, key, false)
+		end
+	end
+
+	if(self.EatKeyUp[key]) then
+		self.EatKeyUp[key] = nil
 	end
 
 	if(self.HotKey == key) then
@@ -661,9 +641,7 @@ function KeybindMapper:HandleInputBit(inputbit, keydown)
 	if(keydown) then
 		self.MoveInputBitFlags = bit.bor(self.MoveInputBitFlags, inputbit)
 	else
-		if(bit.band(self.MoveInputBitFlags, inputbit) ~= 0) then
-			self.MoveInputBitFlags = bit.bxor(self.MoveInputBitFlags, inputbit)
-		end
+		self.MoveInputBitFlags = bit.band(self.MoveInputBitFlags, bit.bnot(inputbit))
 	end
 end
 
@@ -685,10 +663,55 @@ end
 function KeybindMapper:FillInMove(input, isCommander)
 	if(not isCommander) then
 		input.move = self.MovementVector
+		input.commands = self.MoveInputBitFlags
+	else
+		local commandBits = self.MoveInputBitFlags
+
+		--not everyone has Crouch and MovementModifier bound to Ctl and Shift so just hardwire these bits to Ctl and Shift
+		if(self.CtlDown) then
+			commandBits = bit.bor(commandBits, Move.Crouch)
+		end
+
+		if(self.ShiftDown) then
+			commandBits = bit.bor(commandBits, Move.MovementModifier)
+		end
+
+		input.commands = commandBits
 	end
 
 	input.hotkey = (self.HotKey and Move[self.HotKey]) or 0
-	input.commands = self.MoveInputBitFlags
+end
+
+function KeybindMapper:AddTickAction(TickFunc, statetbl, IdString, duplicateMode)
+	
+	if(not statetbl) then
+		statetbl = {}
+	end
+
+	if(duplicateMode == "Replace" or duplicateMode == "NoReplace") then
+		if(not IdString) then
+			error("KeybindMapper:AddTickAction duplicateMode can only be used if IdString is set")
+		end
+		
+		for i,action in ipairs(self.RunningActions) do
+			if(action.ID == IdString) then
+				if(duplicateMode == "Overwrite") then
+					 table.remove(self.RunningActions, i)
+					break
+				else
+					return false
+				end
+			end
+		end
+	end
+
+	statetbl.TickCount = 0
+	statetbl.Tick = TickFunc
+	statetbl.ID = IdString
+
+	table.insert(self.RunningActions, statetbl)
+	
+	return true
 end
 
 function KeybindMapper:InputTick()
@@ -700,13 +723,26 @@ function KeybindMapper:InputTick()
 	local i, count = 1,#self.RunningActions
 
 	while count ~= 0 and i <= count do
-		if(self.RunningActions[i]:Tick()) then
+		local action = self.RunningActions[i]
+		action.TickCount = action.TickCount+1
+		
+		if(action:Tick()) then
 			table.remove(self.RunningActions, i)
 			count = count-1
 		else
 			i = i+1
 		end
 	end
+end
+
+function KeybindMapper:TickActionActive(id)
+	for i,action in ipairs(self.RunningActions) do
+		if(action.ID == id) then
+			return true
+		end
+	end
+	
+	return false
 end
 
 function KeybindMapper:LinkBindToFunction(bindname, func, updown, ...)
@@ -800,7 +836,7 @@ function KeybindMapper:GetDescriptionForBoundKey(key)
 		if(action.ConsoleCommand) then
 			if(action.BindName) then
 				return string.format("Console command \"%s\" Assocated with bind \"%s\"", action.ConsoleCommand, action.BindName)
-			elseif(action.UserCreatedBind) then
+			elseif(action.UserConsoleCmdBind) then
 				
 			end
 		end
@@ -811,7 +847,7 @@ function KeybindMapper:SetKeyToConsoleCommand(key, commandstring)
 	
 	local keybindAction = {
 		ConsoleCommand = commandstring,
-		UserCreatedBind = true,
+		UserConsoleCmdBind = true,
 		OnDown = function() Shared.ConsoleCommand(commandstring) end
 	}
 

@@ -21,34 +21,53 @@ end
 
 KeybindMapper:LinkBindToFunction("JoinRandom", JoinRandomTeam)
 
-function CheckSelectedCommandStructure()
-	local player = Client.GetLocalPlayer()
-	
-	local selectedEnts = player:GetSelection()
-	
-	for k,entInfo in pairs(selectedEnts) do
-		local entity = Shared.GetEntity(entInfo[1])
+local NumberToInputBit = {
+	Move.Weapon1,
+	Move.Weapon2,
+	Move.Weapon3,
+	Move.Weapon4,
+	Move.Weapon5,
+}
 
-		if(entity and entity:isa("CommandStructure")) then
-			
-		end
+function CheckSelectedCommandStructure()
+	--we still in the process of selecting the hotkey group
+	if(KeybindMapper:TickActionActive("SelectHotkeyGroup")) then
+		return 1
+	end
+
+	local player = Client.GetLocalPlayer()
+	local selectedEnts = player:GetSelection()
+
+	if(#selectedEnts ~= 1 or not Shared.GetEntity(selectedEnts[1]) or not Shared.GetEntity(selectedEnts[1]):isa("CommandStructure")) then
+
+		for i = 1,Player.kMaxHotkeyGroups do
+		 local group = player.hotkeyGroups[i]
+
+  		if(#group == 1) then
+				local entity = Shared.GetEntity(group[1])
+				if(entity and entity:isa("CommandStructure")) then	
+					local inputbit = NumberToInputBit[i]
+
+					--Workaround for Commander:SelectHotkeyGroup not syncing changes to the server
+					KeybindMapper:HandleInputBit(inputbit, true)
+					
+					KeybindMapper:AddTickAction(function(state) 
+						if(state.TickCount == 2) then
+							KeybindMapper:HandleInputBit(inputbit, false)
+						 return true
+						end
+					end, nil, "SelectHotkeyGroup", "NoReplace")
+
+					return 1
+				end
+  		end
+  	end
+
+		 Shared.Message("Failed to find CommandStructure to select")
+		return 0
 	end
 	
-	if(true) then
-		return
-	end
-	
-	if(#selectedents ~=  or not Shared.GetEntity(selectedents[1]) or not Shared.GetEntity(selectedents[1]):isa("CommandStructure")) then
-    
-    if player:SelectHotkeyGroup(1) then
-			return true
-		else
-			Shared.Message("Failed to find CommandStructure to select")
-		 return false
-		end
-	end
-	
-	return true
+	return 2
 end
  
 local function DropTargetedTech(techId)
@@ -59,9 +78,17 @@ local function DropTargetedTech(techId)
 		return
 	end
 
-	if((techId == kTechId.AmmoPack or techId == kTechId.MedPack) and not CheckSelectedCommandStructure()) then
+	if((techId == kTechId.AmmoPack or techId == kTechId.MedPack)) then
+		local selectProgress = CheckSelectedCommandStructure()
+		
+		if(not selectProgress)then
 			Shared.Message("CC needs tobe selected to drop health/ammo")
-		return
+		end
+		
+		--we selected the cc this key press we have to wait for the server to register our selection before we can send the action
+		if(selectProgress < 2 ) then
+			return
+		end
 	end
 
 	local x,y = Client.GetCursorPos()

@@ -188,13 +188,21 @@ KeyBindInfo.EngineProcessed = {
   VoiceChat = true,
 }
 
-KeyBindInfo.ExclusiveBinds = {
-	"VoiceChat",
-	"TextChat",
-	"TeamChat",
-	"ToggleConsole",
-	"ReadyRoom",
-	"Scoreboard",
+KeyBindInfo.CommanderUsableGlobalBinds = {
+	VoiceChat = true,
+	TextChat = true,
+	TeamChat = true,
+	ToggleConsole = true,
+	OpenFeedback = true,
+	ReadyRoom = true,
+	Scoreboard = true,
+	PrimaryAttack = true,
+	SecondaryAttack= true,
+	Weapon1 = true,
+	Weapon2 = true,
+	Weapon3 = true,
+	Weapon4 = true,
+	Weapon5 = true,
 }
 
 function KeyBindInfo:Init()
