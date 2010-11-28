@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<project>
+  <command_arguments>-game keybinds</command_arguments>
+  <scc>
+    <provider></provider>
+    <user></user>
+    <project_name></project_name>
+    <local_path></local_path>
+    <aux_project_path></aux_project_path>
+  </scc>
+  <files>
+    <file>
+      <filename>lua\Hooks.lua</filename>
+      <breakpoint>
+        <line>192</line>
+      </breakpoint>
+    </file>
+    <file>
+      <filename>lua\KeybindMapper.lua</filename>
+      <breakpoint>
+        <line>847</line>
+      </breakpoint>
+    </file>
+  </files>
+</project>

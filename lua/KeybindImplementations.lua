@@ -1,8 +1,33 @@
 
-Event.Hook("MapPostLoad", function()
-	KeybindMapper:LinkBindToFunction("OpenFeedback",  ShowFeedbackPage)
+
+KeybindMapper:LinkBindToFunction("OpenFeedback",  ShowFeedbackPage)
+
+local OpenChat = false
+local TeamChat = false
+
+KeybindMapper:LinkBindToFunction("TeamChat",  function()
+	OpenChat = true
+	TeamChat = true
 end)
 
+KeybindMapper:LinkBindToFunction("TextChat",  function()
+	OpenChat = true
+end)
+
+--have to delay opening chat one frame otherwise the chat frame will recive the character event from hiting the openchat keybind
+Event.Hook("UpdateClient", function()
+
+	if(not OpenChat) then
+		return
+	else
+		OpenChat = false
+	end
+	
+	KeybindMapper:ChatOpened()
+	
+	ChatUI_EnterChatMessage(TeamChat)
+	TeamChat = false
+end)
 
 KeybindMapper:LinkBindToConsoleCmd("JoinMarines", "j1")
 KeybindMapper:LinkBindToConsoleCmd("JoinAliens", "j2")
@@ -31,7 +56,7 @@ local NumberToInputBit = {
 
 function CheckSelectedCommandStructure()
 	--we still in the process of selecting the hotkey group
-	if(KeybindMapper:TickActionActive("SelectHotkeyGroup")) then
+	if(KeybindMapper:IsTickActionActive("SelectHotkeyGroup")) then
 		return 1
 	end
 
@@ -81,7 +106,7 @@ local function DropTargetedTech(techId)
 	if((techId == kTechId.AmmoPack or techId == kTechId.MedPack)) then
 		local selectProgress = CheckSelectedCommandStructure()
 		
-		if(not selectProgress)then
+		if(selectProgress == 0)then
 			Shared.Message("CC needs tobe selected to drop health/ammo")
 		end
 		

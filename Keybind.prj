@@ -1,0 +1,34 @@
+[Project ID]
+Signature=UE Proj: v.1
+[Project Information]
+Compilable=1
+Use Relative Directory=1
+Relative to Project File=1
+Filter=
+Include Sub Directories=1
+Project Tagfile=
+Project Wordfile=
+Using VCS=0
+Save Account=0
+Create Tagfile=0
+CTags Legacy Support=0
+[Files]
+0=lua\KeybindSystemConsoleCommands.lua
+1=lua\BindingsDialog.lua
+2=lua\KeybindMapper.lua
+3=lua\KeybindImplementations.lua
+4=lua\Keybind_Client.lua
+5=lua\InputKeyHelper.lua
+6=lua\Hooks.lua
+7=lua\ClassHooker.lua
+8=lua\KeyBindInfo.lua
+9=lua\LoadTracker.lua
+10=lua\DispatchBuilder.lua
+[uemakeXp]
+ReleaseMode=0
+[Debug Settings]
+Program Arguments=
+Symbol Paths=
+Working Directory=
+Selected Debugger=0
+Source Paths=

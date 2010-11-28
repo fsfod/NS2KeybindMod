@@ -9,57 +9,17 @@
 --
 --=============================================================================
 
-Script.Load("lua/BindingsShared.lua")
-
---highjack Main.SetMenu so we called in a place after MainMenu_ReturnToGame is declared 
---so we can then highjack MainMenu_ReturnToGame to set ChangedKeybinds option when the ingame menu is closed
-local SetMenu = Main.SetMenu
-Main.SetMenu = function(menupath)
-	SetMenu(menupath)
-	
-	if(not oldReturnToGame) then
-		oldReturnToGame = MainMenu_ReturnToGame
-		
-		MainMenu_ReturnToGame = function()
-			if(#ChangedKeybinds ~= 0) then
-    		Main.SetOptionString("Keybinds/Changed", table.concat(ChangedKeybinds, "@"))
-    		table.clear(ChangedKeybinds)
-    	else
-    		Main.SetOptionString("Keybinds/Changed", "MenuClosed")
-			end
-
-			oldReturnToGame()
-		end
-	end
-end
-
-
 local specialKeys = {
     [" "] = "SPACE"
 }
 
 local UnboundKeyLabel = ""
-local LazyLoadMode = true
-ChangedKeybinds = {}
+local BindingsUIOpen = false
 
---clear any data left in our cross vm communication from previous sessions
-if(Main.GetOptionString("Keybinds/Changed", "") ~= "") then
-	Main.SetOptionString("Keybinds/Changed", "")
-end
-
-if(Main.GetOptionString("Keybinds/InGameChanged", "") ~= "") then
-	Main.SetOptionString("Keybinds/InGameChanged", "")
-end
 --
 -- Get the value of the input control
 --/
-function BindingsUI_GetInputValue(controlId)
-	  
-	  if(LazyLoadMode) then
-	  	KeyBindInfo:Init()
-	  	LazyLoadMode = false
-	  end
-	  
+function BindingsUI_GetInputValue(controlId)	  
     return KeyBindInfo:GetBoundKey(controlId) or UnboundKeyLabel
 end
 
@@ -67,18 +27,15 @@ end
 -- Set the value of the input control
 --/
 function BindingsUI_SetInputValue(controlId, controlValue)
-		
-	if(LazyLoadMode) then
-	 	KeyBindInfo:Init()
-	  LazyLoadMode = false
-	end
-	  
+
   if(controlId ~= nil) then
-		KeyBindInfo:SetKeybind(controlValue, controlId)
-		
-		if(Client) then
-   		ChangedKeybinds[#ChangedKeybinds+1]	= controlId
-		end
+
+  	if(not BindingsUIOpen) then
+  		KeyBindInfo:OnBindingsUIEntered()
+  		BindingsUIOpen = true
+  	end
+
+		KeyBindInfo:SetKeybind(controlValue, controlId, true)
   end  
 end
 
@@ -89,12 +46,6 @@ end
 -- controlId, "separator", unused, unused
 --/
 function BindingsUI_GetBindingsData()
-	
-	if(Main.GetOptionString("Keybinds/InGameChanged", "") ~= "") then
-		KeyBindInfo:ReloadKeyBindInfo()
-		Main.SetOptionString("Keybinds/InGameChanged", "")
-	end
-
   return KeyBindInfo:GetBindingDialogTable()   
 end
 
@@ -134,11 +85,7 @@ end
 -- Called when bindings is exited and something was changed.
 --/
 function BindingsUI_ExitDialog()
-    
-    Main.ReloadKeyOptions()
-    
-    if(not Client and #ChangedKeybinds ~= 0) then
-    	table.clear(ChangedKeybinds)
-    	Main.SetOptionString("Keybinds/Changed", "")
-    end
+	Client.ReloadKeyOptions()
+	BindingsUIOpen = false
+  KeyBindInfo:OnBindingsUIExited()
 end

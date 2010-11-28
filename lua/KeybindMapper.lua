@@ -13,9 +13,39 @@
 	void DeactivateKeybindGroup(string groupname)
 ]]--
 
-Script.Load("lua/BindingsShared.lua")
+KeybindMapper = {
+	Keybinds = {},
+	ConsoleCmdKeys = {},
+	FilteredKeys = {},
+
+	InputBitActions = {},
+	MovmentVectorActions = {},
+	KeybindActions = {},
+
+	MovementVector = Vector(0,0,0),
+	MoveInputBitFlags = 0,
+	RunningActions = {},
+	EatKeyUp = {},
+
+	IsShutDown = true,
+
+	ChatOpen = false,
+	InGameMenuOpen = false,
+	ConsoleOpen = false,
+
+	CtlDown = false,
+	ShiftDown = false,
+	AltDown = false,
+	OverrideGroups = {},
+	OverrideGroupLookup = {},
+	
+-- change this to true if you want all keybinds tobe ignored when the console is open
+-- this is disabled by default because there issues with dectecting when the console is open
+	IgnoreConsoleState = true,
+}
+
+--Script.Load("lua/BindingsShared.lua")
 Script.Load("lua/Hooks.lua")
-KeyBindInfo:Init()
 
 local HotkeyPassThrough = {
 	Space = true,
@@ -48,40 +78,6 @@ local HotkeyPassThrough = {
 	Z = true,
 }
 
-local InputKeybinds = {
-	NextWeapon = true,
-	PrevWeapon = true,
-	Reload = true,
-	Use = true,
-	Jump = true,
-	Crouch = true,
-	MovementModifier = true,
-	Minimap = true,
-	Buy = true,
-	Weapon1 = true,
-	Weapon2 = true,
-	Weapon3 = true,
-	Weapon4 = true,
-	Weapon5 = true,
-
-	ScrollBackward = true,
-	ScrollRight = true,
-	ScrollLeft = true,
-	ScrollForward = true,
-	Exit = true,
-	
-	Drop = true,
-	Taunt = true,
-	Scoreboard = true,
-	
-	ToggleSayings1 = true,
-	ToggleSayings2 = true,
-
-	TeamChat = true,
-	TextChat = true,
-	PrimaryAttack = true,--"PrimaryFire",
-	SecondaryAttack = true,--"SecondaryFire",
-}
 
 local MovementKeybinds = {
 	MoveForward = {"z", 1, "MoveForward"},
@@ -90,86 +86,64 @@ local MovementKeybinds = {
 	MoveRight = {"x", -1, "MoveRight"},
 }
 
-local InputBitToName = {}
-
-for _,inputname in ipairs(InputEnum) do
-	InputBitToName[Move[inputname]] = inputname
-end
-
-KeybindMapper = {
-	Keybinds = {},
-	FilteredKeys = {},
-
-	InputBitActions = {},
-	MovmentVectorActions = {},
-	KeybindActions = {},
-
-	MovementVector = Vector(0,0,0),
-	MoveInputBitFlags = 0,
-	RunningActions = {},
-	EatKeyUp = {},
-
-	ChatOpen = false,
-	InGameMenuOpen = false,
-	ConsoleOpen = false,
-
-	CtlDown = false,
-	ShiftDown = false,
-	AltDown = false,
-	OverrideGroups = {},
-	OverrideGroupLookup = {},
-	
--- change this to true if you want all keybinds tobe ignored when the console is open
--- this is disabled by default because there issues with dectecting when the console is open
-	IgnoreConsoleState = true,
-}
 
 function KeybindMapper:Init()
-	
-	if(not self.Loaded) then
-		self.fp = Client.CreateFlashPlayer()
-		Client.AddFlashPlayerToDisplay(self.fp)
 
-		self.fp:Load("ui/input.swf")
-		self.fp:SetBackgroundOpacity(0)
-		
-		self:SetupMoveVectorAndInputBitActions()
-		self:RefreshInputKeybinds()
-		
+	if(not self.Loaded) then
+		self:SetupMoveVectorAndInputBitActions()	
+		self:SetupHooks()
 		self.Loaded = true
 	end
 end
 
 Event.Hook("MapPostLoad", function() 
-	KeybindMapper:Init()
+	KeybindMapper:Startup()
 end )
 
-function KeybindMapper:FullResetState()
+Event.Hook("ClientDisconnected", function() 
+	KeybindMapper:ShutDown()
+end )
+
+function KeybindMapper:Startup()
 	
-	Shared.Message("Input State Reset")
-	
-	if(self.fp) then
-		Client.DestroyFlashPlayer(self.fp)
+	if(not self.IsShutDown) then
+		return
 	end
 	
-	self.fp = Client.CreateFlashPlayer()
-	Client.AddFlashPlayerToDisplay(self.fp)
-
-	self.fp:Load("ui/input.swf")
-	self.fp:SetBackgroundOpacity(0)
+	self:Init()
 	
-	self:ResetDynamicState()
-
-	self.ChatOpen = false
-	self.InGameMenuOpen = false
-	self.ConsoleOpen = false
-	
-	self.OverrideGroups = {}
-	
+	self.IsShutDown = false
 	self:RefreshInputKeybinds()
 end
 
-function KeybindMapper:ResetDynamicState()
+function KeybindMapper:ShutDown()
+
+	self.IsShutDown = true
+
+	self:ResetInputStateData("ShutDown")
+
+	self.ChatOpen = false
+	self.InGameMenuOpen = false
+	self.BuyMenuOpen = false
+	self.ConsoleOpen = false
+
+	self.CurrentPlayerClass = nil
+	self.IsCommander = false
+
+	self.OverrideGroups = {}
+
+	self.ConsoleCmdKeys = {}
+	self.Keybinds = {}
+end
+
+function KeybindMapper:FullResetState()
+	self:ShutDown()
+	self:Startup()
+	Shared.Message("Input State Reset")
+end
+
+function KeybindMapper:ResetInputStateData(caller)
+	--Shared.Message("ResetInputStateData "..caller)
 	self.MovementVector = Vector(0,0,0)
 	self.MoveInputBitFlags = 0
 	self.RunningActions = {}
@@ -185,23 +159,25 @@ end
 
 function KeybindMapper:RefreshInputKeybinds()
 
-	self:ResetDynamicState()
+	self:ResetInputStateData("RefreshInputKeybinds")
 
 	self.Keybinds = {}
 
-	for key,bindname in pairs(KeyBindInfo:GetGlobalBoundKeys() ) do
-		local action = self.KeybindActions[bindname]
-
-		if(action) then
-			self:InternalSetKeyAction(key, action)
-		end
-	end
-
 	self.ConsoleKey = KeyBindInfo:GetBoundKey("ToggleConsole") or "Grave"
 
+	local oldConsoleCmds = self.ConsoleCmdKeys
+
 	self.ConsoleCmdKeys = {}
+	
 	for key,cmd in pairs(KeyBindInfo:GetConsoleCmdBoundKeys()) do
-		self:SetKeyToConsoleCommand(key, cmd)
+		local old = oldConsoleCmds[key]
+		
+		--just reuse our old Command action if the command string hasn't changed
+		if(old and old.ConsoleCommand == cmd) then
+			self.ConsoleCmdKeys[key] = cmd
+		else
+			self:SetKeyToConsoleCommand(key, cmd)
+		end
 	end
 	
 	self:ReloadKeybindGroups()
@@ -219,38 +195,60 @@ function KeybindMapper:ReloadKeybindGroups()
 	end
 end
 
-function KeybindMapper:SetupMoveVectorAndInputBitActions()
-		
-	for bitname,bindname in pairs(InputKeybinds) do
-		if(bindname == true) then
-			bindname = bitname
-		end
 
-		local action = KeybindMapper.CreateActionHelper(true, false, self,  Move[bitname])
-		 action.InputBit = bitname
-		 action.OnDown = self.HandleInputBit
-		 action.OnUp = self.HandleInputBit
-		 
-		 self.InputBitActions[Move[bitname]] = action
-		 self:RegisterActionToBind(bindname, action)
-	end
-
-	local ToggleFlashlight = {
+function KeybindMapper:AddPulsedInputBitAction(bitname)
+	
+	local Action = {
 		InputBit = bitname,
 		OnDown = function()
-			KeybindMapper:HandleInputBit(Move.ToggleFlashlight, true)
+			KeybindMapper:HandleInputBit(Move[bitname], true)
 			
 			self:AddTickAction(function(state)
 		 			if(state.TickCount == 2) then
-		 					KeybindMapper:HandleInputBit(Move.ToggleFlashlight, false)
+		 					KeybindMapper:HandleInputBit(Move[bitname], false)
 						return true
 					end
-				end, nil, "FlashLight", "NoReplace")
+				end, nil, bitname, "NoReplace")
 		end,
 	}
+	
+	self.InputBitActions[bitname] = Action
+	self:RegisterActionToBind(bitname, Action)
+	
+end
 
-	self.InputBitActions[Move.ToggleFlashlight] = ToggleFlashlight
-	self:RegisterActionToBind("ToggleFlashlight", ToggleFlashlight)
+local SkipMoveBits = {
+	ToggleFlashlight = true,
+	TextChat = true,
+	TeamChat = true,
+	MoveForward = true,
+	MoveBackward = true,
+	MoveLeft = true,
+	MoveRight = true,
+}
+
+local PulsedInputBits = {
+	ToggleFlashlight = true,
+	Buy = true,
+}
+
+function KeybindMapper:SetupMoveVectorAndInputBitActions()
+		
+	for _,bitname in ipairs(MoveEnum) do
+		if(not SkipMoveBits[bitname] and not PulsedInputBits[bitname]) then
+		 local action = KeybindMapper.CreateActionHelper(true, false, self,  Move[bitname])
+		 	action.InputBit = bitname
+			action.OnDown = self.HandleInputBit
+		 	action.OnUp = self.HandleInputBit
+		 
+		 	self.InputBitActions[Move[bitname]] = action
+		 	self:RegisterActionToBind(bitname, action)
+		end
+	end
+
+	for bitname,_ in pairs(PulsedInputBits) do
+		self:AddPulsedInputBitAction(bitname)
+	end
 
 	for bindname,movdir in pairs(MovementKeybinds) do
 		local action = KeybindMapper.CreateActionHelper(true, false, self,  movdir)
@@ -260,7 +258,7 @@ function KeybindMapper:SetupMoveVectorAndInputBitActions()
 		 self.MovmentVectorActions[bindname] = action
 		 self:RegisterActionToBind(bindname, action)
 	end
-	
+
 end
 
 function KeybindMapper.CreateActionHelper(passKeyDown, passKey, ...)
@@ -282,137 +280,65 @@ function KeybindMapper.CreateActionHelper(passKeyDown, passKey, ...)
 	return action
 end
 
-function KeybindMapper:CheckKeybindChanges()
-	local changedKeybindsString = Main.GetOptionString("Keybinds/Changed", "")
 
-	if(changedKeybindsString ~= "") then
-		local changes = KeyBindInfo:ReloadKeyBindInfo(true)
-
-		self:RefreshInputKeybinds()
-
-		if(next(changes)) then
-			self:NotifyKeybindChanges(changes, true)
-		end
-
-		Main.SetOptionString("Keybinds/Changed", "")
-	end
-end
-
-function KeybindMapper:NotifyKeybindChanges(changes, fromFullReload)
+function KeybindMapper:OnKeybindsChanged(changes)
 	
-	--reload the feedback flash overlay so it shows the correct key
-	if(changes["OpenFeedback"]) then
-		local player = Client.GetLocalPlayer()
-		
-		player:GetFlashPlayer(kFeedbackFlashIndex):Load(Player.kFeedbackFlash)
-  	player:GetFlashPlayer(kFeedbackFlashIndex):SetBackgroundOpacity(0)
-  end
+--	local notSingle = next(changes) and next(changes, next(changes))
+	
+	self:ReloadKeybindGroups()
+	self:RefreshInputKeybinds()
 end
 
-
-function KeybindMapper:UpdateKey(key)
-	local ConsoleCmd = KeyBindInfo:GetBoundConsoleCmd(key)
-
-	if(ConsoleCmd) then
-		self:SetKeyToConsoleCommand(key, ConsoleCmd)
-	else
-	 local bindname = KeyBindInfo:GetBindSetToKey(key)
-
-		if(bindname ~= nil and self.KeybindActions[bindname]) then
-			self:InternalSetKeyAction(key, self.KeybindActions[bindname])
-		else
-			self:InternalSetKeyAction(key, nil)
-		end
-	end
-end
-
-function KeybindMapper:BindConsoleCommand(key, command)
-	local oldbind = KeyBindInfo:GetBindSetToKey(key)
-
-	KeyBindInfo:SetConsoleCmdBind(key, command)
-	self:UpdateKey(key)
-
-	if(oldbind) then
-		local ChangedBinds = {}
-	 	 ChangedBinds[oldbind] = key
-	 	self:NotifyKeybindChanges(ChangedBinds)
-	end
-end
-
---newkey can be false/nil to mean that this keybind was unbound instead of set to a new key
-function KeybindMapper:ChangeKeybind(bindname, newkey)
-
-	local oldkey = KeyBindInfo:GetBoundKey(bindname)
-	local ChangedBinds = {}
-	 ChangedBinds[bindname] = oldkey or ""
-
-	if(newkey) then
-		local oldBind = KeyBindInfo:SetKeybind(newkey, bindname)
-
-		if(oldbind) then
-			ChangedBinds[oldbind] = newkey
-		end
-	else
-		KeyBindInfo:ClearBind(bindname)
-	end
-
-	if(KeyBindInfo:IsBindOverrider(bindname)) then
-		local OverrideGroup = self.OverrideGroupLookup[KeyBindInfo:GetBindsGroup(bindname)]
-
-		if(OverrideGroup) then
-			if(newkey) then
-				OverrideGroup.Keys[newkey] = bindname
-			end
-
-			if(oldkey and oldkey ~= "") then
-				OverrideGroup.Keys[oldkey] = nil
-			end
-		end
-	else
-		if(oldkey and oldkey ~= "" and self.Keybinds[oldkey]) then
-			self:UpdateKey(oldkey)
-		end
-
-		if(newkey and newkey ~= "") then
-			self:UpdateKey(newkey)
-		end
-	end
-
-	self:NotifyKeybindChanges(ChangedBinds)
-end
+KeyBindInfo:RegisterForKeyBindChanges(KeybindMapper, "OnKeybindsChanged")
 
 function KeybindMapper:InternalSetKeyAction(key, action)
 	self.Keybinds[key] = action
 end
 
-function KeybindMapper:InGameMenuOpened()
-	self:ResetDynamicState()
-	self.InGameMenuOpen = true
-	self.fp:SetGlobal("IsInputTrackingDisabled", 1)
+function KeybindMapper:BuyMenuOpened()
+	self.BuyMenuOpen = true
 end
 
-function KeybindMapper:InGameMenuClosed()
-	--PrintDebug("KeybindMapper:InGameMenuClosed ", Main.GetOptionString("Keybinds/Changed", ""))
+function KeybindMapper:BuyMenuClosed()
+	self.BuyMenuOpen = false
+end
+
+function KeybindMapper:InGameMenuOpened()
 	
+	if(self.IsShutDown) then
+		return
+	end
+	
+	self:ResetInputStateData("InGameMenuOpened")
+	self.InGameMenuOpen = true
+end
+
+function KeybindMapper:InGameMenuClosed(keybindsChanged)
+
+	if(self.IsShutDown) then
+		return
+	end
+
 	self.InGameMenuOpen = false
-	self:CheckKeybindChanges()
 end
 
 function KeybindMapper:ChatOpened()
 	self.ChatOpen = true
 
 	--clear chat bits since we will miss the KeyUp event because we will have disabled our input tracking
-	self.MoveInputBitFlags = bit.band(self.MoveInputBitFlags, bit.bnot(bit.bor(Move.TeamChat, Move.TextChat)))
-
-	self.fp:SetGlobal("IsInputTrackingDisabled", 1)
+	self:ResetInputStateData("ChatOpened")
 end
 
 function KeybindMapper:ChatClosed()
 	self.ChatOpen = false
-	self.fp:SetGlobal("IsInputTrackingDisabled", 0)
 end
 
 function KeybindMapper:OnCommander(CommanderSelf)
+	
+	if(self.IsShutDown) then
+		return
+	end
+	
 	self.IsCommander = true
 	self:ActivateKeybindGroup("CommanderShared")
 	
@@ -422,17 +348,47 @@ function KeybindMapper:OnCommander(CommanderSelf)
 		self:ActivateKeybindGroup("AlienCommander")
 	end
 	
-	self:ResetDynamicState()
+	self:ResetInputStateData("OnCommander")
+end
+
+function KeybindMapper:OnCommander2(CommanderSelf)
+	Print("OnCommander2")
 end
 
 function KeybindMapper:OnUnCommander()
+	
+	if(self.IsShutDown) then
+		return
+	end
+	
 	self.IsCommander = false
 	self:DeactivateKeybindGroup("CommanderShared")
 	self:DeactivateKeybindGroup("MarineCommander")
 	self:DeactivateKeybindGroup("AlienCommander")
 
-	self:ResetDynamicState()
+	self:ResetInputStateData("OnUnCommander")
 end
+
+function KeybindMapper:PlayerClassChanged(newclass)
+	
+	local player = Client.GetLocalPlayer()
+	
+	local newclass = player and player:GetClassName()
+	
+	Print("PlayerClassChanged %s", newclass or "nil")
+	
+	
+	if(self.IsCommander) then
+		if(not player or not player:isa("Commander")) then
+			self:OnUnCommander()
+		end
+	else
+		
+	end
+
+	self.CurrentPlayerClass = newclass
+end
+
 
 function KeybindMapper:ActivateKeybindGroup(groupname)
 	
@@ -494,6 +450,7 @@ local function IsValidHotkeyActive(key)
 	return false
 end
 
+-- favor simplicity 
 function KeybindMapper:FindKeysAction(key)
 	
 	local i = #self.OverrideGroups
@@ -507,27 +464,41 @@ function KeybindMapper:FindKeysAction(key)
 		i = i-1
 	end
 
-	return self.Keybinds[key], false
+	if(self.ConsoleCmdKeys[key]) then
+		return self.ConsoleCmdKeys[key], false
+	end
+
+	if(self.Keybinds[key]) then
+		return self.Keybinds[key], false
+	end
+
+	local BindOrCmd, IsBind = KeyBindInfo:GetKeyInfo(key)
+
+	if(IsBind) then
+		return self.KeybindActions[BindOrCmd], false 
+	end
+	
+	return nil
 end
 
 function KeybindMapper:OnKeyDown(key)
 
+	if(self.ChatOpen or self.InGameMenuOpen) then
+		return false
+	end
+
 	--don't trigger any actions if the key being held down and were just getting key repeats for it
 	if(self.KeyStillDown[key]) then
-		return
+		return true
 	end
 
 	self.KeyStillDown[key] = true
 
 	--The Engines Console input event handler should be filtering all key input events when the console is open
 	--so they don't get sent to other input handlers but doesn't for some dumb reason
-	if(not self.IgnoreConsoleState and key == self.ConsoleKey) then
+	if(key == self.ConsoleKey) then
 			self.ConsoleOpen = not self.ConsoleOpen			
-		return
-	end
-	
-	if(not self.IgnoreConsoleState and self.ConsoleOpen) then
-		return
+		return true
 	end
 
 	if(key == "LeftControl" or key == "RightControl") then
@@ -546,7 +517,7 @@ function KeybindMapper:OnKeyDown(key)
 		for _,action in ipairs(self.FilteredKeys[key]) do
 			--if a filter action returns true we don't let anything else process this key event and just return
 			if(self:ActivateAction(action, key, true)) then
-				return
+				return true
 			end
 		end
 	end
@@ -555,16 +526,20 @@ function KeybindMapper:OnKeyDown(key)
 
 	if(action) then
 		if(not self.IsCommander) then
-			self:ActivateAction(action, key, true)
+			 self:ActivateAction(action, key, true)
+			return true
 		else
 	 		local commanderUseable = overrideGroup or action.UserConsoleCmdBind or KeyBindInfo.CommanderUsableGlobalBinds[action.BindName]
-
+			
+			
 			if(HotkeyPassThrough[key] and IsValidHotkeyActive(Move[key]) and (self.ShiftDown or not commanderUseable)) then
-				self.HotKey = key
-				self.EatKeyUp[key] = true
+					self.HotKey = key
+					self.EatKeyUp[key] = true
+				return true
 			else
 				if(commanderUseable) then
-					self:ActivateAction(action, key, true)
+					 self:ActivateAction(action, key, true)
+					return true
 				end
 			end
 		end
@@ -576,6 +551,10 @@ function KeybindMapper:OnKeyDown(key)
 end
 
 function KeybindMapper:OnKeyUp(key)
+
+	if(self.ChatOpen or self.InGameMenuOpen) then
+		return false
+	end
 
 	self.KeyStillDown[key] = nil
 
@@ -595,7 +574,8 @@ function KeybindMapper:OnKeyUp(key)
 
 	if(action and not self.EatKeyUp[key]) then
 		if(not self.IsCommander or overrideGroup or action.UserConsoleCmdBind or KeyBindInfo.CommanderUsableGlobalBinds[action.BindName]) then
-			self:ActivateAction(action, key, false)
+				self:ActivateAction(action, key, false)
+			return true
 		end
 	end
 
@@ -604,8 +584,11 @@ function KeybindMapper:OnKeyUp(key)
 	end
 
 	if(self.HotKey == key) then
-		self.HotKey = nil
+			self.HotKey = nil
+		return true
 	end
+	
+	return false
 end
 
 function KeybindMapper:ActivateAction(action, key, down)
@@ -639,6 +622,11 @@ end
 function KeybindMapper:HandleInputBit(inputbit, keydown)
 
 	if(keydown) then
+		--fix shooting when clicking close in buy menus
+		if(self.BuyMenuOpen and (inputbit == Move.PrimaryAttack  or inputbit == Move.SecondaryAttack)) then
+			return
+		end
+		
 		self.MoveInputBitFlags = bit.bor(self.MoveInputBitFlags, inputbit)
 	else
 		self.MoveInputBitFlags = bit.band(self.MoveInputBitFlags, bit.bnot(inputbit))
@@ -680,6 +668,16 @@ function KeybindMapper:FillInMove(input, isCommander)
 	end
 
 	input.hotkey = (self.HotKey and Move[self.HotKey]) or 0
+end
+
+
+function KeybindMapper:CanKeyFallThrough(key)
+	--Allow Keys to fall through if the ingame menu is open the so binding flash UI can recive them
+	if(self.InGameMenuOpen) then
+		return true
+	end
+
+	return false
 end
 
 function KeybindMapper:AddTickAction(TickFunc, statetbl, IdString, duplicateMode)
@@ -735,7 +733,7 @@ function KeybindMapper:InputTick()
 	end
 end
 
-function KeybindMapper:TickActionActive(id)
+function KeybindMapper:IsTickActionActive(id)
 	for i,action in ipairs(self.RunningActions) do
 		if(action.ID == id) then
 			return true
@@ -811,16 +809,12 @@ function KeybindMapper:RegisterActionToBind(bindname, keybindaction)
 	--map the key that the bindname is set to if were loaded already
 	if(self.Loaded) then
 		local key = KeyBindInfo:GetBoundKey(bindname)
-
-		if(key and key ~= "" and self.Keybinds[key] == nil) then
-			self:InternalSetKeyAction(key, keybindaction)
-		end
 	end
 end
 
 function KeybindMapper:GetDescriptionForBoundKey(key)
 
-	local action = self.Keybinds[key]
+	local action = self:FindKeysAction(key)
 
 	if(action.MovementVector) then
 		return "Movement Keybind:"..action.MovementVector[3]
@@ -830,15 +824,11 @@ function KeybindMapper:GetDescriptionForBoundKey(key)
 		return "Move.input bit Keybind:"..action.InputBit
 	end
 
-	local action = self.Keybinds[key]
-
-	if(action) then
-		if(action.ConsoleCommand) then
-			if(action.BindName) then
-				return string.format("Console command \"%s\" Assocated with bind \"%s\"", action.ConsoleCommand, action.BindName)
-			elseif(action.UserConsoleCmdBind) then
+	if(action.ConsoleCommand) then
+		if(action.BindName) then
+			return string.format("Console command \"%s\" Assocated with bind \"%s\"", action.ConsoleCommand, action.BindName)
+		elseif(action.UserConsoleCmdBind) then
 				
-			end
 		end
 	end
 end
@@ -852,51 +842,7 @@ function KeybindMapper:SetKeyToConsoleCommand(key, commandstring)
 	}
 
 	self.ConsoleCmdKeys[key] = keybindAction
-	self:InternalSetKeyAction(key, keybindAction)
 end
 
---called by flash
-function IsInputTrackingDisabled()
-
-	if(KeybindMapper.InGameMenuOpen) then
-		if(Main.GetOptionString("Keybinds/Changed", "") ~= "") then
-			KeybindMapper:InGameMenuClosed()
-		end
-	end
-	
-	if(KeybindMapper.ChatOpen and not ChatUI_EnteringChatMessage()) then
-		KeybindMapper:ChatClosed()
-	end
-	
-	return KeybindMapper.InGameMenuOpen or KeybindMapper.ChatOpen
-end
-
---called by flash
-function OnKeyDown(key, code)
-	KeybindMapper:OnKeyDown(key)
-end
-
---called by flash
-function OnKeyUp(key, code)
-	KeybindMapper:OnKeyUp(key)
-end
-
-
-if(not KeybindMapper.IgnoreConsoleState) then
-	Event.Hook("Console_km_rcs", function() KeybindMapper.ConsoleOpen = true end )
-	KeybindMapper.ConsoleOpen = Main.GetOptionBoolean("ConsoleOpen", false)
-	Script.AddShutdownFunction(function() 
-		Main.SetOptionBoolean("ConsoleOpen", KeybindMapper.ConsoleOpen) 
-		
-		if(Main.GetOptionString("Keybinds/Changed", "") ~= "") then
-			Main.SetOptionString("Keybinds/Changed", "")
-		end
-	end )
-else
-	Script.AddShutdownFunction(function() 
-		if(Main.GetOptionString("Keybinds/Changed", "") ~= "") then
-			Main.SetOptionString("Keybinds/Changed", "")
-		end
-	end)
-end
-
+KeyBindInfo:Init()
+KeybindMapper:Startup()

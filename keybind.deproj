@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<project>
+  <file>
+    <filename>lua\BindingsDialog.lua</filename>
+  </file>
+  <file>
+    <filename>lua\Hooks.lua</filename>
+  </file>
+  <file>
+    <filename>lua\InputKeyHelper.lua</filename>
+  </file>
+  <file>
+    <filename>lua\Keybind_Client.lua</filename>
+  </file>
+  <file>
+    <filename>lua\KeybindImplementations.lua</filename>
+  </file>
+  <file>
+    <filename>lua\KeybindMapper.lua</filename>
+  </file>
+  <file>
+    <filename>lua\KeybindSystemConsoleCommands.lua</filename>
+  </file>
+  <file>
+    <filename>lua\ClassHooker.lua</filename>
+  </file>
+  <file>
+    <filename>lua\DispatchBuilder.lua</filename>
+  </file>
+  <file>
+    <filename>lua\KeyBindInfo.lua</filename>
+  </file>
+  <file>
+    <filename>lua\LoadTracker.lua</filename>
+  </file>
+</project>

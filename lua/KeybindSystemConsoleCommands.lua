@@ -1,224 +1,129 @@
 
-InputKeyNames = {
-	"Escape",
-	"1",
-	"2",
-	"3",
-	"4",
-	"5",
-	"6",
-	"7",
-	"8",
-	"9",
-	"0",
-	"Minus",
-	"Equals",
-	"Back",
-	"Tab",
-	"Q",
-	"W",
-	"E",
-	"R",
-	"T",
-	"Y",
-	"U",
-	"I",
-	"O",
-	"P",
-	"LeftBracket",
-	"RightBracket",
-	"Return",
-	"LeftControl",
-	"A",
-	"S",
-	"D",
-	"F",
-	"G",
-	"H",
-	"J",
-	"K",
-	"L",
-	"Semicolon",
-	"Apostrophe",
-	"Grave",
-	"LeftShift",
-	"Backslash",
-	"Z",
-	"X",
-	"C",
-	"V",
-	"B",
-	"N",
-	"M",
-	"Comma",
-	"Period",
-	"Slash",
-	"RightShift",
-	"Multiply",
-	"LeftAlt",
-	"Space",
-	"Capital",
-	"F1",
-	"F2",
-	"F3",
-	"F4",
-	"F5",
-	"F6",
-	"F7",
-	"F8",
-	"F9",
-	"F10",
-	"NumLock",
-	"Scroll",
-	"NumPad7",
-	"NumPad8",
-	"NumPad9",
-	"Subtract",
-	"NumPad4",
-	"NumPad5",
-	"NumPad6",
-	"Add",
-	"NumPad1",
-	"NumPad2",
-	"NumPad3",
-	"NumPad0",
-	"Decimal",
-	"F11",
-	"F12",
-	"F13",
-	"F14",
-	"F15",
-	"NumPadEquals",
-	"NumPadEnter",
-	"RightControl",
-	"Divide",
-	"PrintScreen",
-	"RightAlt",
-	"Pause",
-	"Home",
-	"Up",
-	"PageUp",
-	"Left",
-	"Right",
-	"End",
-	"Down",
-	"PageDown",
-	"Insert",
-	"Delete",
-	"LeftWindows",
-	"RightWindows",
-	"AppMenu",
-	"MouseX",
-	"MouseY",
-	"MouseZ", --Scroll Wheel
-	"MouseButton0", 
-	"MouseButton1",
-	"MouseButton2",
-	"MouseButton3",
-	"MouseButton4",
-	"MouseButton5",
-	"MouseButton6",
-	"MouseButton7",
-}
-
-local function FindRealKeyName(key)
-	local upperkey = key:upper()
-	local RealKeyName = false
-
-	for i,keyname in ipairs(InputKeyNames) do
-		if(upperkey == keyname:upper()) then
-				RealKeyName = keyname
-			break
-		end
-	end
+function Bind_ConsoleCommand(key, ...)
 	
-	return RealKeyName
-end
+	local argCount = select('#', ...)
 
-function Bind_ConsoleCommand(player, key, bindname)
-	
-	if(not key or not bindname) then
-		Shared.Message("bind: useage \"bind keyname bindname\"")
+	if(not key or argCount == 0) then
+		Shared.Message("bind: useage \"bind keyname bindname/consolecommand\"")
 	 return
 	end
 
-	local realKeyName = FindRealKeyName(key)
+	local RealKeyName = InputKeyHelper:FindAndCorrectKeyName(key)
 	
-	if(not realKeyName) then
+	if(not RealKeyName) then
 			Shared.Message("bind: Unreconized key "..key)
 		return 
 	end
 	
-	local realBindName = KeyBindInfo:FindBind(bindname)
+	local BindName = select(1, ...)
+	local ForcedConsoleCmd = BindName[1] == '@'
+	local RealBindName = not ForcedConsoleCmd and argCount == 1 and KeyBindInfo:FindBind(BindName)
 	
-	if(not realBindName) then
-			Shared.Message("bind: Unreconized bindname "..bindname)
-		return 
-	end
-	
-	if(KeyBindInfo:IsBindOverrider(realBindName)) then
-		local bindgroup = KeyBindInfo:GetBindsGroup(realBindName)
-		local conflict = KeyBindInfo:GetBoundKeyGroup(RealKeyName, bindgroup)
+	local BindOrCmd, IsBind =  KeyBindInfo:GetKeyInfo(RealKeyName)
 
-		if(conflict) then
-			Shared.Message(string.format("bind: Conflicting bind \"%s\" was unbound in override group %s", conflict, bindgroup))
-		end
-	elseif(KeyBindInfo:IsKeyBound(RealKeyName)) then
-		if(KeyBindInfo:IsKeyBoundToConsoleCmd(RealKeyName)) then
-			Shared.Message(string.format("bind: Conflicting ConsoleCmd bind \"%s\" was unbound", KeyBindInfo:GetBoundConsoleCmd(RealKeyName)))
-		else
-			Shared.Message(string.format("bind: Conflicting bind \"%s\" was unbound", KeyBindInfo:GetBindSetToKey(RealKeyName)))
-		end
-	end
+	if(not RealBindName) then
+			local command = table.concat({...}, " ")
+		
+			if(BindOrCmd) then
+				if(IsBind) then
+					Shared.Message(string.format("bind: Conflicting bind \"%s\" was unbound", BindOrCmd))
+				else
+					Shared.Message(string.format("bind: Conflicting ConsoleCmd bind \"%s\" was unbound", BindOrCmd))
+				end
+			end
 
-	KeybindMapper:ChangeKeybind(realBindName, realKeyName)
-	Main.SetOptionString("Keybinds/InGameChanged", "1")
+			KeyBindInfo:SetConsoleCmdBind(RealKeyName, command)
+			Shared.Message(string.format("bind: Key \"%s\" was bound to console command \"%s\"", RealKeyName, command))
+	else	
+		if(KeyBindInfo:IsBindOverrider(RealBindName)) then
+			local bindgroup = KeyBindInfo:GetBindsGroup(RealBindName)
+			local conflict = KeyBindInfo:GetBoundKeyGroup(RealKeyName, bindgroup)
+  	
+			if(conflict) then
+				Shared.Message(string.format("bind: Conflicting bind \"%s\" was unbound in override group %s", conflict, bindgroup))
+			end
+		elseif(BindOrCmd) then
+			if(IsBind) then
+				Shared.Message(string.format("bind: Conflicting bind \"%s\" was unbound", BindOrCmd))
+			else
+				Shared.Message(string.format("bind: Conflicting ConsoleCmd bind \"%s\" was unbound", BindOrCmd))
+			end
+		end
+  	
+		KeyBindInfo:SetKeybind(RealKeyName, RealBindName)
+		Shared.Message(string.format("bind: Key \"%s\" was bound to bind \"%s\"", RealKeyName, RealBindName))   
+	end
 end
 
 Event.Hook("Console_bind",  Bind_ConsoleCommand)
-
-function BindC_ConsoleCommand(player, key, ...)
-	
-	if(not key or select('#', ...) == 0) then
-		Shared.Message("bindc: useage \"bindc keyname consolecommand\"")
-	 return
-	end
-
-	local RealKeyName = FindRealKeyName(key)
-
-	if(not RealKeyName) then
-			Shared.Message("bindc: Unreconized key "..key)
-		return 
-	end
-
-	local command = table.concat({...}, " ")
-	local oldbind
-
-	if(KeyBindInfo:IsKeyBound(RealKeyName)) then
-		if(not KeyBindInfo:IsKeyBoundToConsoleCmd(RealKeyName)) then
-			oldbind = KeyBindInfo:GetBindSetToKey(RealKeyName)
-			Shared.Message(string.format("bindc: Conflicting bind \"%s\" was unbound", oldbind))
-		else
-			Shared.Message(string.format("bindc: Conflicting ConsoleCmd bind \"%s\" was unbound", KeyBindInfo:GetBoundConsoleCmd(RealKeyName)))
-		end
-	end
-
-	KeybindMapper:BindConsoleCommand(RealKeyName, command)
-
-	Main.SetOptionString("Keybinds/InGameChanged", "1")
-end
-
-Event.Hook("Console_bindc",  BindC_ConsoleCommand)
 
 
 Event.Hook("Console_resetinput", function() KeybindMapper:FullResetState() end)
 
 Event.Hook("Console_resetbinds", function() 
 	KeyBindInfo:ResetKeybinds()
-	Main.SetOptionString("Keybinds/InGameChanged", "1")
 	Shared.Message("Keybinds reset")
 end)
 
+local StateVars = {
+	ChatOpen = true,
+	InGameMenuOpen = true,
+	BuyMenuOpen = true,
+	ConsoleOpen = true,
+}
+
+Event.Hook("Console_inputstate", function() 
+	
+	Shared.Message("Input State Dump:")
+	
+	Shared.Message("ActiveKeybindGroups")
+	
+	if(#KeybindMapper.OverrideGroups == 0) then
+		Shared.Message("None")
+	else
+		for i,group in ipairs(KeybindMapper.OverrideGroups) do
+			Shared.Message(group.GroupName)
+		end
+	end
+	
+	Shared.Message("\nState Varibles")
+	
+	for varname,_ in pairs(StateVars) do
+		if(KeybindMapper[varname]) then
+			Shared.Message(varname.." = true")
+		else
+			Shared.Message(varname.." = false")
+		end
+	end
+	
+	Shared.Message("Input Bits Set")
+	
+	local itemFound = false
+	
+	for _,bitname in ipairs(MoveEnum) do
+		if(bit.band(KeybindMapper.MoveInputBitFlags, Move[bitname]) ~= 0) then
+			Shared.Message(bitname)
+			itemFound = true
+		end
+	end
+	
+	if(not itemFound) then
+		Shared.Message("None")
+	end
+	
+	Shared.Message("\nRunning Actions")
+	if(#KeybindMapper.RunningActions ~= 0) then
+		for i,action in ipairs(KeybindMapper.RunningActions) do
+			Shared.Message(action.ID)
+		end
+	else
+		Shared.Message("None")
+	end
+	
+	local vector = KeybindMapper.MovementVector
+	
+	Shared.Message(string.format("\nMove Vector\n	%i,%i,%i", vector.x, vector.y, vector.z))
+end)
 
 
 function DumpBinds()
