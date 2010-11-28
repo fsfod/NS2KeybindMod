@@ -15,7 +15,7 @@ Public functions:
 	
 	void SetConsoleCmdBind(string keyName, string consoleCommand)
 	table GetConsoleCmdBoundKeys() table format  {keyName = consoleCmdString}
-	string GetBoundConsoleCmd(string keyName)
+	string,IsBind:bool GetKeyInfo(string keyName)
 	
 	bool IsBindOverrider(stirng bindName)
 	
@@ -820,9 +820,11 @@ function KeyBindInfo:ResetKeybinds()
 	
 	local Changes = {}
 	
-	for bindname,v in pairs(self.KeybindNameToKey[keybindname]) do
+	for bindname,v in pairs(self.KeybindNameToKey) do
 		Changes[bindname] = true
 	end
+	
+	self:OnBindingsChanged(Changes)
 end
 
 function KeyBindInfo:Log(level, msg)
