@@ -92,6 +92,7 @@ local function CreateTblPassingString(entryCoount)
 	return table.concat(str, "")
 end
 
+--TODO add exception handling 
 function DispatchBuilder.FallbackDispatcher(hookData, ...)
 
 	local retvalue
@@ -112,6 +113,54 @@ function DispatchBuilder.FallbackDispatcher(hookData, ...)
 	 hookData.ReturnValue = nil
 	
  return retvalue
+end
+
+function DispatchBuilder.ErrorHandler(err)
+	Shared.Message(err)
+end
+
+--note luaJITs xpcall can take extra arguments to pass to the function being called
+function DispatchBuilder.DebugDispatcher(hookData, ...)
+
+	local args = {...}
+	local success
+
+	if(hookData.Raw) then
+		local self = select(1, ...)
+		
+		for _,hook in ipairs(hookData.Raw) do
+			local args2 = {xpcall(hook, DispatchBuilder.ErrorHandler, unpack(args))}
+			
+			--check to see if the captured success return value is true
+			if(args2[1] == true) then
+				args2[1] = self
+				args = args2
+			end
+		end
+	end
+
+	if(#hookData ~= 0) then
+		for _,hook in ipairs(hookData) do
+			xpcall(hook, DispatchBuilder.ErrorHandler, unpack(args))
+		end
+	end
+	
+	hookData.ReturnValue = hookData.Orignal(unpack(args))
+	
+	if(hookData.Post) then
+		for _,hook in ipairs(hookData.Post) do
+			xpcall(hook, DispatchBuilder.ErrorHandler, unpack(args))
+		end
+	end
+	
+	local retvalue = hookData.ReturnValue
+	hookData.ReturnValue = nil
+	
+	if(retvalue == FakeNil) then
+		retvalue = nil
+	end
+	
+	return retvalue
 end
 
 function CreateCustom(hookData)
