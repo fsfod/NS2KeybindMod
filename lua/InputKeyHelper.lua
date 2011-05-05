@@ -196,7 +196,7 @@ MoveEnum = {
 	"Jump",
 	"Crouch",
 	"MovementModifier",
-	"Minimap",
+	"ShowMap",
 	"Buy",
 	"ToggleFlashlight",
 	"Weapon1",
@@ -217,6 +217,7 @@ MoveEnum = {
 	
 	"ToggleSayings1",
 	"ToggleSayings2",
+	"ToggleVoteMenu"
 
 	"TeamChat",
 	"TextChat",

@@ -104,6 +104,11 @@ local function DropTargetedTech(techId)
 	end
 
 	if((techId == kTechId.AmmoPack or techId == kTechId.MedPack)) then
+	  //stupid Commander:ProcessTechTreeActionForEntity does a check for active buttons serverside
+	  player.buttonsScript:ButtonPressed(3)
+	  
+	  //player:SetCurrentTech(16)
+	  /*
 		local selectProgress = CheckSelectedCommandStructure()
 		
 		if(selectProgress == 0)then
@@ -114,6 +119,7 @@ local function DropTargetedTech(techId)
 		if(selectProgress < 2 ) then
 			return
 		end
+		*/
 	end
 
 	local x,y = Client.GetCursorPos()
@@ -121,8 +127,10 @@ local function DropTargetedTech(techId)
 	y = y*Client.GetScreenHeight()
 	
 	local normalizedPickRay = CreatePickRay(player, x, y)
-    
-   player:SendTargetedAction(techId, normalizedPickRay)
+   
+   //player:GetCommanderPickTarget()
+   
+   player:SendTargetedAction(techId, normalizedPickRay, 0)
 end
 
 

@@ -1,10 +1,24 @@
-Script.Load("lua/ClassHooker.lua")
 
+local hotreload = ClassHooker:Mixin("KeybindMapper")
 
-ClassHooker:Mixin("KeybindMapper")
+if(not hotreload) then
+	Event.Hook("UpdateClient", function()
+
+	local player = Client.GetLocalPlayer()
+	
+	if(not player) then
+		if(KeybindMapper.CurrentPlayerClass) then
+			KeybindMapper:PlayerClassChanged(nil)
+		end
+	else
+		if(KeybindMapper.CurrentPlayerClass ~= player:GetClassName()) then
+			KeybindMapper:PlayerClassChanged(player)
+		end
+	end
+ end)
+end
 
 function KeybindMapper:SetupHooks()
-
 	self:RawHookClassFunction("Commander", "OverrideInput", "OverrideInput_Hook")
 	self:HookClassFunction("Commander", "OnInitLocalClient", "OnCommander")
 	self:HookClassFunction("Armory", "OnUse", "ArmoryBuy_Hook")
@@ -17,8 +31,25 @@ function KeybindMapper:SetupHooks()
 	
 	ClassHooker:SetClassCreatedIn("GUIFeedback", "lua/GUIFeedback.lua")
 	self:PostHookClassFunction("GUIFeedback", "Initialize", "GUIFeedbackCreated")
-	
+
 	LoadTracker:HookFileLoadFinished("lua/GUIFeedback.lua", self, "FixUpGUIFeedback")
+	
+	self:HookFunction("RemoveFlashPlayer", "CheckAlienBuyClose")
+	self:HookFunction("ShowInGameMenu", "InGameMenuOpened")
+	self:HookFunction("ChatUI_SubmitChatMessageBody", "ChatClosed")
+	
+	self:HookFunction("MainMenu_ReturnToGame", "InGameMenuClosed")
+	
+	ClassHooker:SetClassCreatedIn("GUIManager", "lua/GUIManager.lua")
+	self:HookClassFunction("GUIManager", "SendKeyEvent", "Pre_SendKeyEvent"):SetPassHandle(true)
+	self:PostHookClassFunction("GUIManager", "SendKeyEvent", "Post_SendKeyEvent"):SetPassHandle(true)
+end
+
+
+function KeybindMapper:CheckAlienBuyClose(index)
+	if(index == kClassFlashIndex and self.BuyMenuOpen) then
+		self:BuyMenuClosed()
+	end
 end
 
 function KeybindMapper:FixUpGUIFeedback()
@@ -56,7 +87,6 @@ function KeybindMapper:ArmoryBuy_Hook(objSelf, player, elapsedTime, useAttachPoi
   	self:BuyMenuOpened()
   end
 end
- 
  
 function KeybindMapper:AlienBuy_Hook(entitySelf)
 	if(entitySelf.showingBuyMenu) then
@@ -99,94 +129,51 @@ function KeybindMapper:CloseMenu_Hook(entitySelf, menuIndex)
 
 end
 
-Event.Hook("UpdateClient", function()
+function KeybindMapper:Pre_SendKeyEvent(HookHandle, _, key, down)
+ 	local handled
 
-	local player = Client.GetLocalPlayer()
-	
-	if(not player) then
-		if(KeybindMapper.CurrentPlayerClass) then
-			KeybindMapper:PlayerClassChanged(nil)
-		end
-	else
-		if(KeybindMapper.CurrentPlayerClass ~= player:GetClassName()) then
-			KeybindMapper:PlayerClassChanged(player)
-		end
+	if(self.IsShutDown) then
+		return false
 	end
 
-end)
-
-local Hooked = false
-
-Event.Hook("MapPostLoad", function()
-	
-	if(Hooked) then
-		return
-	end
-	
-	local oldRemoveFlashPlayer = RemoveFlashPlayer
-	RemoveFlashPlayer = function(index)
-		if(index == kClassFlashIndex and KeybindMapper.BuyMenuOpen) then
-			KeybindMapper:BuyMenuClosed()
-		end
-		oldRemoveFlashPlayer(index)
-	end
-		
-	
-	local oldShowInGameMenu = ShowInGameMenu
-	
-	ShowInGameMenu = function()
-    if not Client.GetIsRunningPrediction() then
-      KeybindMapper:InGameMenuOpened()
-    end
-    oldShowInGameMenu()
+	if(self.IsCommander and (key == InputKey.MouseButton0 or key == InputKey.MouseButton1)) then
+		return false
 	end
 
-	oldReturnToGame = MainMenu_ReturnToGame
+	if(key ~= InputKey.MouseX and key ~= InputKey.MouseY) then 
+		local keystring  = InputKeyHelper:ConvertToKeyName(key)
 
-	MainMenu_ReturnToGame = function()
-		KeybindMapper:InGameMenuClosed(ChangedKeybinds)
-    ChangedKeybinds = false
-    	
-		oldReturnToGame()
-	end
---[[
-	local oldLeaveMenu = LeaveMenu
-	LeaveMenu = function()
-		if(Client.GetIsConnected()) then
-			KeybindMapper:InGameMenuClosed()
-		end
-		oldLeaveMenu()
-	end
-]]--
-
-	local oldSubmitChatMessageBody = ChatUI_SubmitChatMessageBody	
-	ChatUI_SubmitChatMessageBody = function(chatMessage)
-		KeybindMapper:ChatClosed()
-		oldSubmitChatMessageBody(chatMessage)
-	end
-	
-	local SendKeyEvent = GUIManager.SendKeyEvent 
-	
-	GUIManager.SendKeyEvent = function(self, key, down)
- 		local handled
-		
-		if(key ~= InputKey.MouseX and key ~= InputKey.MouseY) then 
-			local keystring  = InputKeyHelper:ConvertToKeyName(key)
-
-			if(down) then
- 				handled = KeybindMapper:OnKeyDown(keystring)
-			else
-				handled = KeybindMapper:OnKeyUp(keystring)
-			end
+		if(down) then
+ 			handled = self:OnKeyDown(keystring)
 		else
-			return false
-		end
-
-		if(not handled and not SendKeyEvent(self, key, down)) then
-			return not KeybindMapper:CanKeyFallThrough(key)
+			handled = self:OnKeyUp(keystring)
 		end
 	end
 
-	Hooked = true
-end)
+	if(handled) then
+		HookHandle:SetReturn(true)
+		HookHandle:BlockOrignalCall()
+	end
+end
 
+function KeybindMapper:Post_SendKeyEvent(HookHandle, _, key)
+
+	if(self.IsShutDown or key == InputKey.MouseX or key == InputKey.MouseY) then
+		return false
+	end
+
+	local handled = HookHandle:GetReturn()
+
+	if(not handled) then
+		local keystring = InputKeyHelper:ConvertToKeyName(key)
+
+		HookHandle:SetReturn(not self:CanKeyFallThrough(keystring))
+	end
+end
+
+--bam hot reloading hooks ClassHooker:Mixin nukes all our old ones
+if(hotreload) then
+ KeybindMapper:SetupHooks()
+end
+ 
+Print("Hooks Loaded")

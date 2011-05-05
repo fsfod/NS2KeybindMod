@@ -1,31 +1,30 @@
-This mod replaces keybind system by using the "Input" flash object thats normally used in the Binding Option page. 
-
 Features
 [list]
 [*]Commander Specific Bindings Added including View Scrolling binds, these binds can be bound to the same key as any non commander bind like
-your normal movement keys without issue.
+your normal movement keys without issue. If any of a selected objects hotkeys clash with a commander keybind you will have to hold shift when using the hotkey.
 [*]Old ns1 Favorites F1,F2,F3,F4 are back, if you have something else already bound to these keys you will have to go manually bind them
 [*]"bindc" and "bind" console commands added, bindc is for binding a key to a console command, bind is for binding a key to a normal bind
 [*]Auto unbinding of conflicting key When setting a binds key in the Bindings Dialog
-[*]Open Feedback key can now be rebound its default is now F5 if its free. The feedback flash overlay will also instantly update to show what the current 
+[*]Open Feedback key can now be rebound, its default is now F5 if its free. The feedback flash overlay will also instantly update to show what the current 
 feedback keybind is.
 [/list]
-
-Using
+Installing and Using
 [indent]To use this mod copy keybinds.zip to your natural selection 2 directory and create a shortcut to ns2.exe then open the shortcuts properties and
  add "-game keybinds.zip" without the quotes to the end of the target path. When you run the game for first time with this mod active the mod will make copies
  your keybinds and these duplicates are then used by this mod. The originals will never be touched so can run the game without this mod active and your keybinds 
  will behave like they normally did.[/indent]
 
-Implementation details:
-[indent]The input events from the Input flash object are feed into to the lua through the KeybindMapper object which maps the input events to keybind actions.
-When the Input flash object is listening for input events it blocks all input events from getting sent to any other active flash and to the engines own internal keybind mapping system so we have recreate the engines behavior for Move.commands and Move.move and feed it back in by hooking the OverrrideInput function of the local clients entity
-and we also have to disable the Input object when chat text is being entered so the chat flash will receive key down events.
+Implementation notes:
+[indent]This Mod uses the "Input" Flash object to listen for mouse and keyboard input events. The input events from the Input flash object are fed into lua
+through the KeybindMapper object which maps the input events to keybind actions.
+When the Input flash object is listening for input events it blocks all input events from getting sent to any other active flash and to the engines own internal keybind
+mapping system so we have recreate the engines behavior for Move.commands, Move.move and Move.hotkey and feed it back in by hooking the OverrrideInput function of the local clients
+entity, we also have to disable the Input object when chat text is being entered so the chat flash will receive key down events.
+The KeybindInfo class handles the storage details of keybinds and the metadata associated with each bind. KeybindInfo is both used by KeybindMapper in the Client VM and by the Bindings option page in the Main VM
 [/indent]
 Known Issues
 [list]
-[*]When returning from the InGameMenu you might appear tobe briefly rooted for a second or so depending on server lag 
+[*]When returning from the in game menu you might appear tobe briefly rooted for a second or so depending on server lag 
 [*]The Bindings Dialog doesn't update when a keybind gets unbound because another keybind was set to the same key, scrolling the keybind list will force an update
-[*]The commander Ammo and Health keybinds only work when a Command Station is selected 
 [*]Any keybinds that are not letters will still work when the console is open because of how the console filters input events
 [/list]

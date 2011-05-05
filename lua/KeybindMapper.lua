@@ -13,6 +13,9 @@
 	void DeactivateKeybindGroup(string groupname)
 ]]--
 
+local IsReload = false
+
+if(not KeybindMapper) then
 KeybindMapper = {
 	Keybinds = {},
 	ConsoleCmdKeys = {},
@@ -43,9 +46,11 @@ KeybindMapper = {
 -- this is disabled by default because there issues with dectecting when the console is open
 	IgnoreConsoleState = true,
 }
+else
+	IsReload = true
+end
 
 --Script.Load("lua/BindingsShared.lua")
-Script.Load("lua/Hooks.lua")
 
 local HotkeyPassThrough = {
 	Space = true,
@@ -86,23 +91,37 @@ local MovementKeybinds = {
 	MoveRight = {"x", -1, "MoveRight"},
 }
 
+function KeybindMapper:OnLoad()
+	//self:LoadScript("lua/Hooks.lua")
+
+	KeyBindInfo:Init()
+	self:Init()
+	
+	//self:LoadScript("lua/KeybindSystemConsoleCommands.lua")
+	//self:LoadScript("lua/KeybindImplementations.lua")
+end
 
 function KeybindMapper:Init()
 
 	if(not self.Loaded) then
 		self:SetupMoveVectorAndInputBitActions()	
 		self:SetupHooks()
+		
+		KeyBindInfo:RegisterForKeyBindChanges(self, "OnKeybindsChanged")
+		
 		self.Loaded = true
 	end
 end
 
-Event.Hook("MapPostLoad", function() 
-	KeybindMapper:Startup()
-end )
+if(not IsReload) then
+	Event.Hook("MapPostLoad", function() 
+		KeybindMapper:Startup()
+	end )
 
-Event.Hook("ClientDisconnected", function() 
-	KeybindMapper:ShutDown()
-end )
+	Event.Hook("ClientDisconnected", function() 
+		KeybindMapper:ShutDown()
+	end )
+end
 
 function KeybindMapper:Startup()
 	
@@ -131,6 +150,7 @@ function KeybindMapper:ShutDown()
 	self.IsCommander = false
 
 	self.OverrideGroups = {}
+	self.OverrideGroupLookup = {}
 
 	self.ConsoleCmdKeys = {}
 	self.Keybinds = {}
@@ -193,28 +213,57 @@ function KeybindMapper:ReloadKeybindGroups()
 			self:ActivateKeybindGroup(group.GroupName)
 		end
 	end
+	
+	self.CommanderHotKeys = KeyBindInfo:GetGroupBoundKeys("CommanderHotKeys")
 end
 
+local PulseBitTickAction = function(state) 
+	if(state.TickCount == 2) then
+			KeybindMapper:HandleInputBit(Move[state.BitName], false)
+		return true
+	end
+end
 
 function KeybindMapper:AddPulsedInputBitAction(bitname)
 	
+	
+	local TickState = {BitName = bitname}
 	local Action = {
 		InputBit = bitname,
 		OnDown = function()
 			KeybindMapper:HandleInputBit(Move[bitname], true)
 			
-			self:AddTickAction(function(state)
-		 			if(state.TickCount == 2) then
-		 					KeybindMapper:HandleInputBit(Move[bitname], false)
-						return true
-					end
-				end, nil, bitname, "NoReplace")
+			self:AddTickAction(PulseBitTickAction, TickState, bitname, "NoReplace")
 		end,
 	}
-	
+
 	self.InputBitActions[bitname] = Action
 	self:RegisterActionToBind(bitname, Action)
+end
+
+function KeybindMapper:CreateWeaponNumberAction(number)
 	
+	local bitname = "Weapon"..tostring(number)
+	
+	local TickState = {BitName = bitname}
+	local Action = {
+		InputBit = bitname,
+		OnDown = function()
+			KeybindMapper:HandleInputBit(Move[bitname], true)
+			
+			if(self.IsCommander) then
+				self:AddTickAction(PulseBitTickAction, TickState, bitname, "NoReplace")
+			end
+		end,
+		OnUp = function()
+			if(not self.IsCommander) then
+			 KeybindMapper:HandleInputBit(Move[bitname], false)
+			end 
+		end
+	}
+
+	self.InputBitActions[bitname] = Action
+	self:RegisterActionToBind(bitname, Action)
 end
 
 local SkipMoveBits = {
@@ -225,6 +274,12 @@ local SkipMoveBits = {
 	MoveBackward = true,
 	MoveLeft = true,
 	MoveRight = true,
+	//Weapon1,
+	//Weapon2,
+	//Weapon3,
+	//Weapon4,
+	//Weapon5,
+	//Weapon6,
 }
 
 local PulsedInputBits = {
@@ -249,6 +304,10 @@ function KeybindMapper:SetupMoveVectorAndInputBitActions()
 	for bitname,_ in pairs(PulsedInputBits) do
 		self:AddPulsedInputBitAction(bitname)
 	end
+	
+	//for i=1,6 do
+	//	self:CreateWeaponNumberAction(i)
+	//end
 
 	for bindname,movdir in pairs(MovementKeybinds) do
 		local action = KeybindMapper.CreateActionHelper(true, false, self,  movdir)
@@ -259,6 +318,20 @@ function KeybindMapper:SetupMoveVectorAndInputBitActions()
 		 self:RegisterActionToBind(bindname, action)
 	end
 
+	local action = KeybindMapper.CreateActionHelper(false, false, self)
+	
+	self.EscPressed
+	
+	self.FilteredKeys["Escape"] = action
+end
+
+function KeybindMapper:EscPressed()
+  
+  if(self.IsCommander) then
+    
+  end
+  
+  return false
 end
 
 function KeybindMapper.CreateActionHelper(passKeyDown, passKey, ...)
@@ -289,8 +362,6 @@ function KeybindMapper:OnKeybindsChanged(changes)
 	self:RefreshInputKeybinds()
 end
 
-KeyBindInfo:RegisterForKeyBindChanges(KeybindMapper, "OnKeybindsChanged")
-
 function KeybindMapper:InternalSetKeyAction(key, action)
 	self.Keybinds[key] = action
 end
@@ -313,7 +384,9 @@ function KeybindMapper:InGameMenuOpened()
 	self.InGameMenuOpen = true
 end
 
-function KeybindMapper:InGameMenuClosed(keybindsChanged)
+function KeybindMapper:InGameMenuClosed()
+
+	ChangedKeybinds = false
 
 	if(self.IsShutDown) then
 		return
@@ -335,7 +408,7 @@ end
 
 function KeybindMapper:OnCommander(CommanderSelf)
 	
-	if(self.IsShutDown) then
+	if(self.IsShutDown or self.IsCommander) then
 		return
 	end
 	
@@ -349,10 +422,6 @@ function KeybindMapper:OnCommander(CommanderSelf)
 	end
 	
 	self:ResetInputStateData("OnCommander")
-end
-
-function KeybindMapper:OnCommander2(CommanderSelf)
-	Print("OnCommander2")
 end
 
 function KeybindMapper:OnUnCommander()
@@ -377,7 +446,7 @@ function KeybindMapper:PlayerClassChanged(newclass)
 	
 	Print("PlayerClassChanged %s", newclass or "nil")
 	
-	
+
 	if(self.IsCommander) then
 		if(not player or not player:isa("Commander")) then
 			self:OnUnCommander()
@@ -393,7 +462,8 @@ end
 function KeybindMapper:ActivateKeybindGroup(groupname)
 	
 	if(self.OverrideGroupLookup[groupname]) then
-		error("KeybindMapper:ActivateKeybindGroup group \""..groupname.."\" is already active")
+		Print("KeybindMapper:ActivateKeybindGroup group \""..groupname.."\" is already active")
+	 return
 	end
 	
 	local boundkeys = KeyBindInfo:GetGroupBoundKeys(groupname)
@@ -424,33 +494,7 @@ function KeybindMapper:DeactivateKeybindGroup(groupname)
 	self.OverrideGroupLookup[groupname] = nil
 end
 
-local function IsValidHotkeyActive(key)
-	local player = Client.GetLocalPlayer() 
-	
-	if(not player:isa("Commander")) then
-		return false
-	end
-	
-	local selected = player:GetSelection()
-
-	if(#selected == 0) then
-		return false
-	end
-
-	for index, techId in ipairs(player.menuTechButtons) do
-   	if player.menuTechButtonsAllowed[index] then
-     local hotkey = LookupTechData(techId, kTechDataHotkey)
-
-      if hotkey ~= nil and key == hotkey then
-        return index
-      end
-  	end
-	end
-
-	return false
-end
-
--- favor simplicity 
+-- favor simplicity over mering lots of tables key to bindname's
 function KeybindMapper:FindKeysAction(key)
 	
 	local i = #self.OverrideGroups
@@ -522,32 +566,102 @@ function KeybindMapper:OnKeyDown(key)
 		end
 	end
 
-	local action,overrideGroup = self:FindKeysAction(key)
-
-	if(action) then
-		if(not self.IsCommander) then
-			 self:ActivateAction(action, key, true)
+	if(not self.IsCommander) then
+		local action,overrideGroup = self:FindKeysAction(key)
+		
+		if(action) then
+				self:ActivateAction(action, key, true)
 			return true
-		else
-	 		local commanderUseable = overrideGroup or action.UserConsoleCmdBind or KeyBindInfo.CommanderUsableGlobalBinds[action.BindName]
-			
-			
-			if(HotkeyPassThrough[key] and IsValidHotkeyActive(Move[key]) and (self.ShiftDown or not commanderUseable)) then
-					self.HotKey = key
-					self.EatKeyUp[key] = true
-				return true
-			else
-				if(commanderUseable) then
-					 self:ActivateAction(action, key, true)
-					return true
-				end
-			end
 		end
 	else
-		if(HotkeyPassThrough[key]) then
-			self.HotKey = key
-		end
+		self:CommaderOnKey(key, true)
 	end
+end
+
+local HotkeyToButton = { 
+  CommMenuKey1 = 1,
+  CommMenuKey2 = 1,
+  CommMenuKey3 = 3,
+  CommMenuKey4 = 4,
+
+  CommHotKey1 = 5,
+  CommHotKey2 = 6,
+  CommHotKey3 = 7,
+  CommHotKey4 = 8,
+
+  CommHotKey5 = 9,
+  CommHotKey6 = 10,
+  CommHotKey7 = 11,
+  CommHotKey8 = 12,
+}
+
+function KeybindMapper:GetHotKeyButtonIndex(key)
+	local player = Client.GetLocalPlayer() 
+	
+	if(not player:isa("Commander")) then
+		return false
+	end
+
+  local Hotkey = self.CommanderHotKeys[key]
+	local index = Hotkey and HotkeyToButton[Hotkey]
+
+	if(index and player.menuTechButtonsAllowed[index]) then
+		return index
+	else
+		return nil
+	end
+
+  //self:SetHotkeyHit(index)
+  //self.lastHotkeyIndex = index
+end
+
+local CommaderOverrideGroups = {
+	CommanderShared = true,
+	MarineCommander = true,
+	AlienCommander = true,
+}
+
+function KeybindMapper:CommaderOnKey(key, down)
+	local action, overrideGroup = self:FindKeysAction(key)
+
+	local commanderUseable = action and ((overrideGroup and CommaderOverrideGroups[overrideGroup]) or 
+													 action.UserConsoleCmdBind or KeyBindInfo.CommanderUsableGlobalBinds[action.BindName])
+	
+	local HotKeyButton = self:GetHotKeyButtonIndex(key)
+	
+	local UseHotKey = HotKeyButton and (not commanderUseable or (self.HotKeyShiftOverride and not self.ShiftDown) or (not self.HotKeyShiftOverride and self.ShiftDown))
+	
+	if(UseHotKey) then
+		if(down) then			
+			local player = Client.GetLocalPlayer() 
+			 player:SetHotkeyHit(HotKeyButton)
+			 //self.lastHotkeyIndex = index
+
+			/*
+			self:AddTickAction(function(state)
+				if(state.TickCount == 2) then
+					self.HotKey = nil
+				 return true
+				end
+			end, nil, "HotKeyUp", "NoReplace")
+						
+			self.HotKey = key
+						
+			self.EatKeyUp[key] = true
+		*/
+	 	 return true
+	 	else
+	 		
+	 	end
+	end
+
+	
+	if(action) then
+	 		self:ActivateAction(action, key, down)
+	 	return true
+	end
+	
+	return false
 end
 
 function KeybindMapper:OnKeyUp(key)
@@ -581,11 +695,6 @@ function KeybindMapper:OnKeyUp(key)
 
 	if(self.EatKeyUp[key]) then
 		self.EatKeyUp[key] = nil
-	end
-
-	if(self.HotKey == key) then
-			self.HotKey = nil
-		return true
 	end
 	
 	return false
@@ -658,10 +767,14 @@ function KeybindMapper:FillInMove(input, isCommander)
 		--not everyone has Crouch and MovementModifier bound to Ctl and Shift so just hardwire these bits to Ctl and Shift
 		if(self.CtlDown) then
 			commandBits = bit.bor(commandBits, Move.Crouch)
+		else
+			commandBits = bit.band(commandBits, bit.bnot(Move.Crouch))
 		end
 
 		if(self.ShiftDown) then
 			commandBits = bit.bor(commandBits, Move.MovementModifier)
+		else
+			commandBits = bit.band(commandBits, bit.bnot(Move.MovementModifier))
 		end
 
 		input.commands = commandBits
@@ -670,14 +783,22 @@ function KeybindMapper:FillInMove(input, isCommander)
 	input.hotkey = (self.HotKey and Move[self.HotKey]) or 0
 end
 
-
+local CommanderPassThrough = {
+	MouseButton0 = true,
+	MouseButton1 = true,
+}
+ 
 function KeybindMapper:CanKeyFallThrough(key)
 	--Allow Keys to fall through if the ingame menu is open the so binding flash UI can recive them
 	if(self.InGameMenuOpen) then
 		return true
 	end
 
-	return false
+	if(self.IsCommander) then
+		return CommanderPassThrough[key]
+	end
+
+	return true
 end
 
 function KeybindMapper:AddTickAction(TickFunc, statetbl, IdString, duplicateMode)
@@ -693,7 +814,7 @@ function KeybindMapper:AddTickAction(TickFunc, statetbl, IdString, duplicateMode
 		
 		for i,action in ipairs(self.RunningActions) do
 			if(action.ID == IdString) then
-				if(duplicateMode == "Overwrite") then
+				if(duplicateMode == "Replace") then
 					 table.remove(self.RunningActions, i)
 					break
 				else
@@ -843,6 +964,3 @@ function KeybindMapper:SetKeyToConsoleCommand(key, commandstring)
 
 	self.ConsoleCmdKeys[key] = keybindAction
 end
-
-KeyBindInfo:Init()
-KeybindMapper:Startup()
