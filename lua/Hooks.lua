@@ -2,39 +2,52 @@
 local hotreload = ClassHooker:Mixin("KeybindMapper")
 
 if(not hotreload) then
-	Event.Hook("UpdateClient", function()
-
-	local player = Client.GetLocalPlayer()
-	
-	if(not player) then
-		if(KeybindMapper.CurrentPlayerClass) then
-			KeybindMapper:PlayerClassChanged(nil)
-		end
-	else
-		if(KeybindMapper.CurrentPlayerClass ~= player:GetClassName()) then
-			KeybindMapper:PlayerClassChanged(player)
-		end
-	end
- end)
+  PlayerEvents:HookIsCommander(KeybindMapper, function(isCommander)
+      
+    if(isCommander) then 
+      KeybindMapper:OnCommander()
+    else
+      KeybindMapper:OnUnCommander()
+    end
+  end)
+  
+  //PlayerEvents:HookClassChanged(KeybindMapper, "PlayerClassChanged")
 end
 
 function KeybindMapper:SetupHooks()
 	self:RawHookClassFunction("Commander", "OverrideInput", "OverrideInput_Hook")
 	self:HookClassFunction("Commander", "OnInitLocalClient", "OnCommander")
-	self:HookClassFunction("Armory", "OnUse", "ArmoryBuy_Hook")
 
 	self:RawHookClassFunction("Player", "OverrideInput", "OverrideInput_Hook")
-	self:HookClassFunction("Player", "CloseMenu", "CloseMenu_Hook")
+	self:RawHookClassFunction("Embryo", "OverrideInput", "OverrideInput_Hook")
+	self:ReplaceClassFunction("Embryo", "OverrideInput", "Embryo_OverrideInput")
+
+	self:PostHookClassFunction("Marine", "CloseMenu",function(entitySelf)
+    if(entitySelf == Client.GetLocalPlayer() and not entitySelf.showingBuyMenu and self.BuyMenuOpen) then
+	      self:BuyMenuClosed()
+    end
+  end)
+
+	self:PostHookClassFunction("Armory", "OnUse", function(objSelf, player)
+    if(player == Client.GetLocalPlayer() and player.showingBuyMenu) then
+      self:BuyMenuOpened()
+    end
+  end)
+
+	self:PostHookFunction("ArmoryUI_Close", function()
+	  if(self.BuyMenuOpen) then
+		  self:BuyMenuClosed()
+		end
+	end)
 	
-	self:RawHookClassFunction("Marine", "CloseMenu", "MarineCloseMenu_Hook")
+	self:PostHookClassFunction("Alien", "CloseMenu", "AlienBuy_Hook")
 	self:PostHookClassFunction("Alien", "Buy", "AlienBuy_Hook")
 	
 	ClassHooker:SetClassCreatedIn("GUIFeedback", "lua/GUIFeedback.lua")
 	self:PostHookClassFunction("GUIFeedback", "Initialize", "GUIFeedbackCreated")
 
 	LoadTracker:HookFileLoadFinished("lua/GUIFeedback.lua", self, "FixUpGUIFeedback")
-	
-	self:HookFunction("RemoveFlashPlayer", "CheckAlienBuyClose")
+
 	self:HookFunction("ShowInGameMenu", "InGameMenuOpened")
 	self:HookFunction("ChatUI_SubmitChatMessageBody", "ChatClosed")
 	
@@ -43,13 +56,6 @@ function KeybindMapper:SetupHooks()
 	ClassHooker:SetClassCreatedIn("GUIManager", "lua/GUIManager.lua")
 	self:HookClassFunction("GUIManager", "SendKeyEvent", "Pre_SendKeyEvent"):SetPassHandle(true)
 	self:PostHookClassFunction("GUIManager", "SendKeyEvent", "Post_SendKeyEvent"):SetPassHandle(true)
-end
-
-
-function KeybindMapper:CheckAlienBuyClose(index)
-	if(index == kClassFlashIndex and self.BuyMenuOpen) then
-		self:BuyMenuClosed()
-	end
 end
 
 function KeybindMapper:FixUpGUIFeedback()
@@ -81,18 +87,18 @@ function KeybindMapper:GUIFeedbackCreated(selfArg)
 	
 	KeyBindInfo:RegisterForKeyBindChanges(selfArg, "OnKeybindsChanged")
 end
-
-function KeybindMapper:ArmoryBuy_Hook(objSelf, player, elapsedTime, useAttachPoint)
-  if (objSelf:GetIsBuilt() and objSelf:GetIsActive() and not Client.GetMouseVisible() and Client.GetLocalPlayer() == player) then
-  	self:BuyMenuOpened()
-  end
-end
  
 function KeybindMapper:AlienBuy_Hook(entitySelf)
-	if(entitySelf.showingBuyMenu) then
+  if(entitySelf ~= Client.GetLocalPlayer()) then
+    return
+  end
+  
+	if(entitySelf.buyMenu) then
 		self:BuyMenuOpened()
 	else
-		self:BuyMenuClosed()
+	  if(self.BuyMenuOpen) then
+		  self:BuyMenuClosed()
+		end
 	end
 end
 
@@ -102,42 +108,51 @@ function KeybindMapper:OverrideInput_Hook(entitySelf, input)
 	return input
 end
 
-function KeybindMapper:MarineCloseMenu_Hook(entitySelf, flashIndex)
-	
-	--add missing detault behavior
-	if flashIndex == nil and gFlashPlayers ~= nil then
-    -- Close top-level menu if not specified
-    flashIndex = table.maxn(gFlashPlayers)
-  end
+local ValidEmbryoBits = 0
 
-	if(flashIndex == kClassFlashIndex) then
-		if(self.BuyMenuOpen) then
-			self:BuyMenuClosed()
-		end
-	end
+local BlockedBits = {
+  "PrimaryAttack",
+	"SecondaryAttack",
+	"NextWeapon",
+	"PrevWeapon",
+	"Reload",
+	"Use",
+	"Jump",
+	"Crouch",
+	"MovementModifier",
+	"Buy",
+}
 
-	return flashIndex
+for i,bitName in ipairs(BlockedBits) do
+   ValidEmbryoBits = bit.bor(ValidEmbryoBits, Move[bitName])
 end
 
-function KeybindMapper:CloseMenu_Hook(entitySelf, menuIndex)
+ValidEmbryoBits = bit.bnot(ValidEmbryoBits)
 
-	if(menuIndex == kClassFlashIndex) then
-		if(self.BuyMenuOpen) then
-			self:BuyMenuClosed()
-		end
-	end
+// Allow players to rotate view, chat, scoreboard, etc. but not move
+function KeybindMapper:Embryo_OverrideInput(entitySelf, input)
 
+    // Completely override movement and commands
+   input.move.x = 0
+   input.move.y = 0
+   input.move.z = 0
+
+   // Only allow some actions like going to menu, chatting and Scoreboard (not jump, use, etc.)
+   input.commands = bit.band(input.commands, ValidEmbryoBits)
+    
+  return input
 end
 
 function KeybindMapper:Pre_SendKeyEvent(HookHandle, _, key, down)
- 	local handled
-
-	if(self.IsShutDown) then
-		return false
+ 	local handled 
+  
+  --don't do anything if another hook has already handled it
+	if(self.IsShutDown or HookHandle:GetReturn()) then
+		return
 	end
 
 	if(self.IsCommander and (key == InputKey.MouseButton0 or key == InputKey.MouseButton1)) then
-		return false
+		return
 	end
 
 	if(key ~= InputKey.MouseX and key ~= InputKey.MouseY) then 
@@ -156,7 +171,7 @@ function KeybindMapper:Pre_SendKeyEvent(HookHandle, _, key, down)
 	end
 end
 
-function KeybindMapper:Post_SendKeyEvent(HookHandle, _, key)
+function KeybindMapper:Post_SendKeyEvent(HookHandle, _, key, down)
 
 	if(self.IsShutDown or key == InputKey.MouseX or key == InputKey.MouseY) then
 		return false
@@ -171,9 +186,6 @@ function KeybindMapper:Post_SendKeyEvent(HookHandle, _, key)
 	end
 end
 
---bam hot reloading hooks ClassHooker:Mixin nukes all our old ones
 if(hotreload) then
  KeybindMapper:SetupHooks()
 end
- 
-Print("Hooks Loaded")

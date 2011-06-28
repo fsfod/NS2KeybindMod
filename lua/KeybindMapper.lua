@@ -85,11 +85,16 @@ local HotkeyPassThrough = {
 
 
 local MovementKeybinds = {
-	MoveForward = {"z", 1, "MoveForward"},
-	MoveBackward = {"z", -1, "MoveBackward"},
-	MoveLeft = {"x", 1, "MoveLeft"},
-	MoveRight = {"x", -1, "MoveRight"},
+	MoveForward = {"z", 1, "MoveForward", false},
+	MoveBackward = {"z", -1, "MoveBackward", false},
+	MoveLeft = {"x", 1, "MoveLeft", false},
+	MoveRight = {"x", -1, "MoveRight", false},
 }
+
+MovementKeybinds.MoveForward[4] = MovementKeybinds.MoveBackward
+MovementKeybinds.MoveBackward[4] = MovementKeybinds.MoveForward
+MovementKeybinds.MoveLeft[4] = MovementKeybinds.MoveRight
+MovementKeybinds.MoveRight[4] = MovementKeybinds.MoveLeft
 
 function KeybindMapper:OnLoad()
 	//self:LoadScript("lua/Hooks.lua")
@@ -170,6 +175,10 @@ function KeybindMapper:ResetInputStateData(caller)
 	self.EatKeyUp = {}
 	
 	self.KeyStillDown = {}
+	
+	for bindname,action in pairs(self.MovmentVectorActions) do
+	  action.MovementVector.Down = false
+	end
 	
 	self.CtlDown = false
 	self.ShiftDown = false
@@ -319,9 +328,7 @@ function KeybindMapper:SetupMoveVectorAndInputBitActions()
 	end
 
 	local action = KeybindMapper.CreateActionHelper(false, false, self)
-	
-	self.EscPressed
-	
+	action.OnDown = self.EscPressed
 	self.FilteredKeys["Escape"] = action
 end
 
@@ -371,6 +378,7 @@ function KeybindMapper:BuyMenuOpened()
 end
 
 function KeybindMapper:BuyMenuClosed()
+  Print("BuyMenuClosed")
 	self.BuyMenuOpen = false
 end
 
@@ -438,27 +446,6 @@ function KeybindMapper:OnUnCommander()
 	self:ResetInputStateData("OnUnCommander")
 end
 
-function KeybindMapper:PlayerClassChanged(newclass)
-	
-	local player = Client.GetLocalPlayer()
-	
-	local newclass = player and player:GetClassName()
-	
-	Print("PlayerClassChanged %s", newclass or "nil")
-	
-
-	if(self.IsCommander) then
-		if(not player or not player:isa("Commander")) then
-			self:OnUnCommander()
-		end
-	else
-		
-	end
-
-	self.CurrentPlayerClass = newclass
-end
-
-
 function KeybindMapper:ActivateKeybindGroup(groupname)
 	
 	if(self.OverrideGroupLookup[groupname]) then
@@ -525,9 +512,15 @@ function KeybindMapper:FindKeysAction(key)
 	return nil
 end
 
+local MenuPassThrough = {
+  MouseButton0 = true,
+  MouseButton1 = true,
+  Escape = true,
+}
+
 function KeybindMapper:OnKeyDown(key)
 
-	if(self.ChatOpen or self.InGameMenuOpen) then
+	if(self.ChatOpen or self.InGameMenuOpen or (self.BuyMenuOpen and MenuPassThrough[key])) then
 		return false
 	end
 
@@ -574,25 +567,27 @@ function KeybindMapper:OnKeyDown(key)
 			return true
 		end
 	else
-		self:CommaderOnKey(key, true)
+		return self:CommaderOnKey(key, true)
 	end
+	
+	return false
 end
 
 local HotkeyToButton = { 
-  CommMenuKey1 = 1,
-  CommMenuKey2 = 1,
-  CommMenuKey3 = 3,
-  CommMenuKey4 = 4,
+  CommHotKey1 = 1,
+  CommHotKey2 = 2,
+  CommHotKey3 = 3,
+  CommHotKey4 = 4,
 
-  CommHotKey1 = 5,
-  CommHotKey2 = 6,
-  CommHotKey3 = 7,
-  CommHotKey4 = 8,
+  CommHotKey5 = 5,
+  CommHotKey6 = 6,
+  CommHotKey7 = 7,
+  CommHotKey8 = 8,
 
-  CommHotKey5 = 9,
-  CommHotKey6 = 10,
-  CommHotKey7 = 11,
-  CommHotKey8 = 12,
+  CommHotKey9 = 9,
+  CommHotKey10 = 10,
+  CommHotKey11 = 11,
+  CommHotKey12 = 12,
 }
 
 function KeybindMapper:GetHotKeyButtonIndex(key)
@@ -666,7 +661,7 @@ end
 
 function KeybindMapper:OnKeyUp(key)
 
-	if(self.ChatOpen or self.InGameMenuOpen) then
+	if(self.ChatOpen or self.InGameMenuOpen or (self.BuyMenuOpen and MenuPassThrough[key])) then
 		return false
 	end
 
@@ -743,17 +738,25 @@ function KeybindMapper:HandleInputBit(inputbit, keydown)
 end
 
 function KeybindMapper:HandleMovmentVector(movedir, keydown)
+  
+  local VectorField = movedir[1]
 
 	if(keydown) then
-		--don't do anything if the the opposite movment key is already being held down i.e. our movement vector field is non zero
-		if(self.MovementVector[movedir[1]] == 0) then
-			self.MovementVector[movedir[1]] = movedir[2] 
-		end
+		--just overwrite movement vector field even if the other direction set it
+	  self.MovementVector[VectorField] = movedir[2] 
+		movedir.Down = true
 	else
 		--don't do anything if the the opposite movment key is already being held down i.e. our movement vector field is not equal to our direction number
-		if(self.MovementVector[movedir[1]] == movedir[2]) then
-			self.MovementVector[movedir[1]] = 0
+		if(self.MovementVector[VectorField] == movedir[2]) then
+			--if the the opposite movment key is already being held down switch to that direction
+			if(movedir[4].Down) then
+			  self.MovementVector[VectorField] = movedir[4][2]
+			else
+			  self.MovementVector[VectorField] = 0
+			end
 		end
+		
+		movedir.Down = false
 	end
 end
 

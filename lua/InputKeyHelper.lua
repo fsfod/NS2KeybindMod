@@ -217,7 +217,7 @@ MoveEnum = {
 	
 	"ToggleSayings1",
 	"ToggleSayings2",
-	"ToggleVoteMenu"
+	"ToggleVoteMenu",
 
 	"TeamChat",
 	"TextChat",

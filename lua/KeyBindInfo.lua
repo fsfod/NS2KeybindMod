@@ -127,20 +127,20 @@ KeyBindInfo.CommanderHotKeys = {
 		Label = "Commander Hot Keys",
 
 		Keybinds = {
-			{"CommMenuKey1", "Menu 1", "Q"},
-			{"CommMenuKey2", "Menu 2", "W"},
-			{"CommMenuKey3", "Menu 3", "E"},
-			{"CommMenuKey4", "Menu 4", "R"},
+			{"CommHotKey1", "HotKey 1", "Q"},
+			{"CommHotKey2", "HotKey 2", "W"},
+			{"CommHotKey3", "HotKey 3", "E"},
+			{"CommHotKey4", "HotKey 4", "R"},
 			
-			{"CommHotKey1", "HotKey 1",	"A"},
-			{"CommHotKey2", "HotKey 2",	"S"},
-			{"CommHotKey3",	"HotKey 3", "D"},
-			{"CommHotKey4", "HotKey 4", "F"},
+			{"CommHotKey5", "HotKey 5",	"A"},
+			{"CommHotKey6", "HotKey 6",	"S"},
+			{"CommHotKey7",	"HotKey 7", "D"},
+			{"CommHotKey8", "HotKey 8", "F"},
 
-			{"CommHotKey5", "HotKey 4",	"Z"},
-			{"CommHotKey6", "HotKey 5", "X"},
-			{"CommHotKey7", "HotKey 6", "C"},
-			{"CommHotKey8", "HotKey 7", "V"},
+			{"CommHotKey9", "HotKey 9",	"Z"},
+			{"CommHotKey10", "HotKey 10", "X"},
+			{"CommHotKey11", "HotKey 11", "C"},
+			{"CommHotKey12", "HotKey 12", "V"},
 		}
 }
 
@@ -268,7 +268,7 @@ function KeyBindInfo:AddDefaultKeybindGroups()
   self:AddKeybindGroup(self.MovementKeybinds)
 	self:AddKeybindGroup(self.ActionKeybinds)
 
-  if(self.StandAlone) then
+  if(self.Standalone) then
     self:AddKeybindGroup(self.MiscKeybinds_StandAlone)
   else
     self:AddKeybindGroup(self.MiscKeybinds)
