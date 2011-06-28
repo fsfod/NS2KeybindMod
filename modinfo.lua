@@ -3,16 +3,13 @@ EngineBuild = 162
 ModTableName = "KeybindMapper"
 
 ScriptList = {
-  "lua/InputKeyHelper.lua",
-  "lua/KeyBindInfo.lua",
-  "lua/KeybindMapper.lua",
-  "lua/Hooks.lua",
-  "lua/KeybindSystemConsoleCommands.lua",
-  "lua/KeybindImplementations.lua"
+  "InputKeyHelper.lua",
+  "KeyBindInfo.lua",
+  "KeybindMapper.lua",
+  "Hooks.lua",
+  "KeybindSystemConsoleCommands.lua",
+  "KeybindImplementations.lua"
 }
 
-ScriptOverrides= {
-	["lua/BindingsDialog.lua"] = true 
-}
 
 ValidVM = "client"
