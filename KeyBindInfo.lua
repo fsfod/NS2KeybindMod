@@ -26,6 +26,8 @@ Public functions:
 	string:groupname GetBindsGroup(stirng bindName)
 ]]--
 
+if(not KeyBindInfo) then
+  
 KeyBindInfo = {
 	Loaded = false,
 	KeybindEntrys = {},
@@ -42,6 +44,8 @@ KeyBindInfo = {
 	KeybindOverrideGroups = {},
 	LogLevel = 1,
 }
+
+end
 
 KeyBindInfo.MovementKeybinds = {
 		Name = "Movement",
@@ -317,9 +321,12 @@ function KeyBindInfo:LoadAndValidateSavedKeyBinds()
 	
 	local FirstLoad = Client.GetOptionString("Keybinds/Version", "") == ""
 	
-	if(FirstLoad) then
-	//	self:ImportKeys()
-	//	Client.SetOptionString("Keybinds/Version", "1")
+	if(FirstLoad and not self.Standalone) then
+	  //ugly but should work most of the time
+	  if(Client.GetOptionString("Keybinds/Binds/MoveForward", "") == "") then	  
+		  self:ImportKeys()
+		end
+		Client.SetOptionString("Keybinds/Version", "1")
 	end
 
 	for _,bindgroup in ipairs(self.KeybindGroups) do
@@ -330,11 +337,13 @@ function KeyBindInfo:LoadAndValidateSavedKeyBinds()
 		end
 	end
 
-	if(FirstLoad) then
-		//self:FillInFreeDefaults()
+	if(FirstLoad and not self.Standalone) then
+		self:FillInFreeDefaults()
 	end
 	
-	//self:LoadConsoleCmdBinds()
+	if(not self.Standalone) then
+	  self:LoadConsoleCmdBinds()
+  end
 end
 
 function KeyBindInfo:LogBindConflic(bindname, key, boundbind)
@@ -421,6 +430,8 @@ local ImportList = {
 
 	"TeamChat",
 	"TextChat",
+	"VoiceChat",
+	"ToggleVoteMenu",
 }
 
 function KeyBindInfo:ImportKeys()
@@ -452,6 +463,10 @@ end
 
 function KeyBindInfo:SaveKeybind(bindname, key)
   Client.SetOptionString(self.ConfigPath..bindname, key)
+ 
+  if(not self.Standalone and self.EngineProcessed[bindname]) then
+    Client.SetOptionString("input/"..bindname, key)
+  end
   
   if(self.BindConflicts[bindname]) then
     self.BindConflicts[bindname] = nil
@@ -465,7 +480,7 @@ function KeyBindInfo:FillInFreeDefaults()
 		
 			for _,bind in ipairs(bindgroup.Keybinds) do
 				local bindname = bind[1]
-				local defaultKey = bind[3]
+				local defaultKey = bind[3] or ""
 
 				if(defaultKey ~= "" and (IsOverrideGroup or (not self:GetBoundKey(bindname) and not self:IsKeyBound(defaultKey)) )) then
 					self:SaveKeybind(bindname, defaultKey)

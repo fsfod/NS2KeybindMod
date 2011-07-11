@@ -173,8 +173,7 @@ function KeybindMapper:ResetInputStateData(caller)
 	self.MoveInputBitFlags = 0
 	self.RunningActions = {}
 	self.EatKeyUp = {}
-	
-	self.KeyStillDown = {}
+
 	
 	for bindname,action in pairs(self.MovmentVectorActions) do
 	  action.MovementVector.Down = false
@@ -235,7 +234,6 @@ end
 
 function KeybindMapper:AddPulsedInputBitAction(bitname)
 	
-	
 	local TickState = {BitName = bitname}
 	local Action = {
 		InputBit = bitname,
@@ -250,31 +248,6 @@ function KeybindMapper:AddPulsedInputBitAction(bitname)
 	self:RegisterActionToBind(bitname, Action)
 end
 
-function KeybindMapper:CreateWeaponNumberAction(number)
-	
-	local bitname = "Weapon"..tostring(number)
-	
-	local TickState = {BitName = bitname}
-	local Action = {
-		InputBit = bitname,
-		OnDown = function()
-			KeybindMapper:HandleInputBit(Move[bitname], true)
-			
-			if(self.IsCommander) then
-				self:AddTickAction(PulseBitTickAction, TickState, bitname, "NoReplace")
-			end
-		end,
-		OnUp = function()
-			if(not self.IsCommander) then
-			 KeybindMapper:HandleInputBit(Move[bitname], false)
-			end 
-		end
-	}
-
-	self.InputBitActions[bitname] = Action
-	self:RegisterActionToBind(bitname, Action)
-end
-
 local SkipMoveBits = {
 	ToggleFlashlight = true,
 	TextChat = true,
@@ -283,17 +256,23 @@ local SkipMoveBits = {
 	MoveBackward = true,
 	MoveLeft = true,
 	MoveRight = true,
-	//Weapon1,
-	//Weapon2,
-	//Weapon3,
-	//Weapon4,
-	//Weapon5,
-	//Weapon6,
+	Weapon1 = true,
+	Weapon2 = true,
+	Weapon3 = true,
+	Weapon4 = true,
+	Weapon5 = true,
+	Weapon6 = true,
 }
 
 local PulsedInputBits = {
 	ToggleFlashlight = true,
 	Buy = true,
+	Weapon1 = true,
+	Weapon2 = true,
+	Weapon3 = true,
+	Weapon4 = true,
+	Weapon5 = true,
+	Weapon6 = true,
 }
 
 function KeybindMapper:SetupMoveVectorAndInputBitActions()
@@ -329,15 +308,34 @@ function KeybindMapper:SetupMoveVectorAndInputBitActions()
 
 	local action = KeybindMapper.CreateActionHelper(false, false, self)
 	action.OnDown = self.EscPressed
-	self.FilteredKeys["Escape"] = action
+	self.FilteredKeys["Escape"] = {action}
+	/*
+	for i=1,5 do
+	  local action = KeybindMapper.CreateActionHelper(false, false, self, i)
+	    action.OnDown = self.HandleMenuNumbers
+	  
+	  self.FilteredKeys[Num..tostring(i)]
+	end
+	*/
+end
+
+function KeybindMapper:HandleMenuNumbers()
+  
+  return false
 end
 
 function KeybindMapper:EscPressed()
-  
-  if(self.IsCommander) then
-    
+
+  local player = Client.GetLocalPlayer()
+
+  if(not self.IsCommander) then
+    // Close buy menu if open, otherwise show in-game menu
+    if not player or not player:CloseMenu(kClassFlashIndex) then
+      ShowInGameMenu()
+     return true
+    end
   end
-  
+
   return false
 end
 
@@ -515,8 +513,9 @@ end
 local MenuPassThrough = {
   MouseButton0 = true,
   MouseButton1 = true,
-  Escape = true,
+  Escape = false,
 }
+
 
 function KeybindMapper:OnKeyDown(key)
 
@@ -525,11 +524,9 @@ function KeybindMapper:OnKeyDown(key)
 	end
 
 	--don't trigger any actions if the key being held down and were just getting key repeats for it
-	if(self.KeyStillDown[key]) then
+	if(IsRepeat) then
 		return true
 	end
-
-	self.KeyStillDown[key] = true
 
 	--The Engines Console input event handler should be filtering all key input events when the console is open
 	--so they don't get sent to other input handlers but doesn't for some dumb reason
@@ -665,8 +662,6 @@ function KeybindMapper:OnKeyUp(key)
 		return false
 	end
 
-	self.KeyStillDown[key] = nil
-
 	if(key == "LeftControl" or key == "RightControl") then
 		self.CtlDown = false
 	end
@@ -786,22 +781,27 @@ function KeybindMapper:FillInMove(input, isCommander)
 	input.hotkey = (self.HotKey and Move[self.HotKey]) or 0
 end
 
-local CommanderPassThrough = {
+local KeyPassThrough = {
 	MouseButton0 = true,
 	MouseButton1 = true,
 }
  
 function KeybindMapper:CanKeyFallThrough(key)
-	--Allow Keys to fall through if the ingame menu is open the so binding flash UI can recive them
-	if(self.InGameMenuOpen) then
+	if(key == "Escape") then
+		return false
+	end
+
+	if(KeyPassThrough[key]) then
 		return true
 	end
-
-	if(self.IsCommander) then
-		return CommanderPassThrough[key]
+	
+	local BindOrCmd, IsBind = KeyBindInfo:GetKeyInfo(key)
+	
+	if(IsBind and KeyBindInfo.EngineProcessed[BindOrCmd]) then
+	  return true
 	end
 
-	return true
+	return false
 end
 
 function KeybindMapper:AddTickAction(TickFunc, statetbl, IdString, duplicateMode)

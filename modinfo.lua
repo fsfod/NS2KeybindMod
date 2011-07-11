@@ -11,5 +11,8 @@ ScriptList = {
   "KeybindImplementations.lua"
 }
 
+Dependencies = {
+  "BaseUIControls"
+}
 
 ValidVM = "client"

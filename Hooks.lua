@@ -56,6 +56,8 @@ function KeybindMapper:SetupHooks()
 	ClassHooker:SetClassCreatedIn("GUIManager", "lua/GUIManager.lua")
 	self:HookClassFunction("GUIManager", "SendKeyEvent", "Pre_SendKeyEvent"):SetPassHandle(true)
 	self:PostHookClassFunction("GUIManager", "SendKeyEvent", "Post_SendKeyEvent"):SetPassHandle(true)
+	
+	self:ReplaceFunction("ExitPressed", function() end)
 end
 
 function KeybindMapper:FixUpGUIFeedback()
@@ -143,15 +145,15 @@ function KeybindMapper:Embryo_OverrideInput(entitySelf, input)
   return input
 end
 
-function KeybindMapper:Pre_SendKeyEvent(HookHandle, _, key, down)
+function KeybindMapper:Pre_SendKeyEvent(HookHandle, _, key, down, IsRepeat)
  	local handled 
   
   --don't do anything if another hook has already handled it
-	if(self.IsShutDown or HookHandle:GetReturn()) then
+	if(self.IsShutDown or HookHandle:GetReturn() or IsRepeat) then
 		return
 	end
 
-	if(self.IsCommander and (key == InputKey.MouseButton0 or key == InputKey.MouseButton1)) then
+	if((self.IsCommander or ScoreboardUI_GetVisible()) and (key == InputKey.MouseButton0 or key == InputKey.MouseButton1)) then
 		return
 	end
 
