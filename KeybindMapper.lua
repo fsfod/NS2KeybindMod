@@ -376,7 +376,6 @@ function KeybindMapper:BuyMenuOpened()
 end
 
 function KeybindMapper:BuyMenuClosed()
-  Print("BuyMenuClosed")
 	self.BuyMenuOpen = false
 end
 
