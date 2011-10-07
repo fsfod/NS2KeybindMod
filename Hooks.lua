@@ -19,6 +19,8 @@ function KeybindMapper:SetupHooks()
 	self:HookClassFunction("Commander", "OnInitLocalClient", "OnCommander")
 
 	self:RawHookClassFunction("Player", "OverrideInput", "OverrideInput_Hook")
+	self:RawHookClassFunction("AlienSpectator", "OverrideInput", "OverrideInput_Hook")
+	self:RawHookClassFunction("MarineSpectator", "OverrideInput", "OverrideInput_Hook")
 	self:RawHookClassFunction("Embryo", "OverrideInput", "OverrideInput_Hook")
 	self:ReplaceClassFunction("Embryo", "OverrideInput", "Embryo_OverrideInput")
 
