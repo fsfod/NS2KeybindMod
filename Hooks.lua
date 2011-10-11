@@ -26,12 +26,12 @@ function KeybindMapper:SetupHooks()
 
 	self:PostHookClassFunction("Marine", "CloseMenu",function(entitySelf)
     if(entitySelf == Client.GetLocalPlayer() and not entitySelf.showingBuyMenu and self.BuyMenuOpen) then
-	      self:BuyMenuClosed()
+	    self:BuyMenuClosed()
     end
   end)
 
 	self:PostHookClassFunction("Armory", "OnUse", function(objSelf, player)
-    if(player == Client.GetLocalPlayer() and player.showingBuyMenu) then
+    if(not Shared.GetIsRunningPrediction() and player == Client.GetLocalPlayer() and player:GetIsAlive() and player.showingBuyMenu) then
       self:BuyMenuOpened()
     end
   end)
@@ -58,7 +58,7 @@ function KeybindMapper:SetupHooks()
 	ClassHooker:SetClassCreatedIn("GUIManager", "lua/GUIManager.lua")
 	self:HookClassFunction("GUIManager", "SendKeyEvent", "Pre_SendKeyEvent"):SetPassHandle(true)
 	self:PostHookClassFunction("GUIManager", "SendKeyEvent", "Post_SendKeyEvent"):SetPassHandle(true)
-	
+		
 	self:ReplaceFunction("ExitPressed", function() end)
 end
 

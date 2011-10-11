@@ -106,6 +106,13 @@ function KeybindMapper:OnLoad()
 	//self:LoadScript("lua/KeybindImplementations.lua")
 end
 
+function KeybindMapper:OnClientLuaFinished()
+
+  BindingsUI_GetInputValue = function(controlId) 
+    return KeyBindInfo:GetBoundKey(controlId)
+  end
+end
+
 function KeybindMapper:Init()
 
 	if(not self.Loaded) then
@@ -478,7 +485,7 @@ function KeybindMapper:DeactivateKeybindGroup(groupname)
 	self.OverrideGroupLookup[groupname] = nil
 end
 
--- favor simplicity over mering lots of tables key to bindname's
+-- favor simplicity over merging lots of tables key to bindname's
 function KeybindMapper:FindKeysAction(key)
 	
 	local i = #self.OverrideGroups
