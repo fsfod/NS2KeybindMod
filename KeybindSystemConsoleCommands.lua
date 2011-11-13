@@ -33,6 +33,11 @@ function Bind_ConsoleCommand(key, ...)
 			end
 
 			KeyBindInfo:SetConsoleCmdBind(RealKeyName, command)
+
+			if(not BindOrCmd) then
+			  KeybindMapper:SetKeyToConsoleCommand(RealKeyName, command)
+			end
+			
 			Shared.Message(string.format("bind: Key \"%s\" was bound to console command \"%s\"", RealKeyName, command))
 	else	
 		if(KeyBindInfo:IsBindOverrider(RealBindName)) then
