@@ -511,7 +511,7 @@ function KeyBindInfo:SetConsoleCmdBind(key, cmdstring)
 	local OldBindorCmd, IsBind = self:GetKeyInfo(key)
 
 	if(OldBindorCmd) then
-		self:UnbindKey(key)
+		self:UnbindKey(key, true)
 	end
 
 	self.BoundConsoleCmds[key] = cmdstring
@@ -544,12 +544,19 @@ function KeyBindInfo:GetKeyInfo(key)
 	return nil, false
 end
 
-function KeyBindInfo:ClearConsoleCmdBind(key)
+function KeyBindInfo:ClearConsoleCmdBind(key, isMultiEdit)
 
 	self.BoundConsoleCmds[key] = nil
 	Client.SetOptionString("Keybinds/ConsoleCmds/"..key, "")
 
 	self:SaveConsoleCmdKeyList()
+	
+	if(not isMultiEdit) then
+	  local tbl = {}
+	  tbl[key] = true
+	  
+	  self:OnBindingsChanged(nil, tbl)
+	end
 end
 
 function KeyBindInfo:SaveConsoleCmdKeyList()
@@ -727,7 +734,7 @@ function KeyBindInfo:SetKeybind(key, bindname, isMultiEdit)
 				end
 			end
 
-			self:UnbindKey(key)
+			self:UnbindKey(key, true)
 		end
 	else
 		--check to see this key is not bound to something else in this override group
@@ -739,7 +746,7 @@ function KeyBindInfo:SetKeybind(key, bindname, isMultiEdit)
 				changes[groupbind] = true
 			end
 			
-			self:ClearBind(groupbind)
+			self:ClearBind(groupbind, true)
 		end
 	end
 
@@ -752,7 +759,7 @@ function KeyBindInfo:SetKeybind(key, bindname, isMultiEdit)
 	end
 end
 
-function KeyBindInfo:UnbindKey(key)
+function KeyBindInfo:UnbindKey(key, isMultiEdit)
 	
 	local bindName, IsBind = self:GetKeyInfo(key)
 	
@@ -762,13 +769,13 @@ function KeyBindInfo:UnbindKey(key)
 	end
 
 	if(IsBind) then		
-		self:ClearBind(bindName)
+		self:ClearBind(bindName, isMultiEdit)
 	else
-		self:ClearConsoleCmdBind(key)
+		self:ClearConsoleCmdBind(key, isMultiEdit)
 	end
 end
 
-function KeyBindInfo:ClearBind(bindName)
+function KeyBindInfo:ClearBind(bindName, isMultiEdit)
 
 	local IsOverride = self:IsBindOverrider(bindName)
 
@@ -780,14 +787,23 @@ function KeyBindInfo:ClearBind(bindName)
 	  self:SaveKeybind(bindName, "")
 	end
 
-	if(self.KeybindNameToKey[bindName] == nil) then
+  local key = self.KeybindNameToKey[bindName]
+
+	if(key == nil) then
 		self:Log(1, "\""..bindName.."\" is already unbound")
 	else
 		if(not IsOverride) then
-			self.BoundKeys[self.KeybindNameToKey[bindName]] = nil
+			self.BoundKeys[key] = nil
 		end
-		
+
 		self.KeybindNameToKey[bindName] = nil
+
+	  if(not isMultiEdit) then
+	    local changes = {}
+	    changes[bindName] = key
+
+		  self:OnBindingsChanged(changes)
+	  end
 	end
 end
 
