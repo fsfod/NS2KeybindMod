@@ -36,8 +36,6 @@ KeybindMapper = {
 	InGameMenuOpen = false,
 	ConsoleOpen = false,
 
-	CtlDown = false,
-	ShiftDown = false,
 	AltDown = false,
 	OverrideGroups = {},
 	OverrideGroupLookup = {},
@@ -185,10 +183,7 @@ function KeybindMapper:ResetInputStateData(caller)
 	for bindname,action in pairs(self.MovmentVectorActions) do
 	  action.MovementVector.Down = false
 	end
-	
-	self.CtlDown = false
-	self.ShiftDown = false
-	self.AltDown = false
+
 	self.HotKey = nil
 end
 
@@ -209,7 +204,7 @@ function KeybindMapper:RefreshInputKeybinds()
 		
 		--just reuse our old Command action if the command string hasn't changed
 		if(old and old.ConsoleCommand == cmd) then
-			self.ConsoleCmdKeys[key] = cmd
+			self.ConsoleCmdKeys[key] = old
 		else
 			self:SetKeyToConsoleCommand(key, cmd)
 		end
@@ -541,18 +536,6 @@ function KeybindMapper:OnKeyDown(key)
 		return true
 	end
 
-	if(key == "LeftControl" or key == "RightControl") then
-		self.CtlDown = true
-	end
-	
-	if(key == "LeftShift" or key == "RightShift") then
-		self.ShiftDown = true
-	end
-	
-	if(key == "LeftAlt" or key == "RightAlt") then
-		self.AltDown = true
-	end
-
 	if(self.FilteredKeys[key]) then
 		for _,action in ipairs(self.FilteredKeys[key]) do
 			--if a filter action returns true we don't let anything else process this key event and just return
@@ -627,8 +610,9 @@ function KeybindMapper:CommaderOnKey(key, down)
 	
 	local HotKeyButton = self:GetHotKeyButtonIndex(key)
 	
-	local UseHotKey = HotKeyButton and (not commanderUseable or (self.HotKeyShiftOverride and not self.ShiftDown) or (not self.HotKeyShiftOverride and self.ShiftDown))
-	
+	local UseHotKey = HotKeyButton and (not commanderUseable or 
+	                                     (self.HotKeyShiftOverride and not InputKeyHelper:IsShiftDown()) or (not self.HotKeyShiftOverride and InputKeyHelper:IsShiftDown()))
+
 	if(UseHotKey) then
 		if(down) then			
 			local player = Client.GetLocalPlayer() 
@@ -666,18 +650,6 @@ function KeybindMapper:OnKeyUp(key)
 
 	if(self.ChatOpen or self.InGameMenuOpen or (self.BuyMenuOpen and MenuPassThrough[key])) then
 		return false
-	end
-
-	if(key == "LeftControl" or key == "RightControl") then
-		self.CtlDown = false
-	end
-	
-	if(key == "LeftShift" or key == "RightShift") then
-		self.ShiftDown = false
-	end
-	
-	if(key == "LeftAlt" or key == "RightAlt") then
-		self.AltDown = false
 	end
 
 	local action, overrideGroup = self:FindKeysAction(key)
@@ -769,13 +741,13 @@ function KeybindMapper:FillInMove(input, isCommander)
 		local commandBits = self.MoveInputBitFlags
 
 		--not everyone has Crouch and MovementModifier bound to Ctl and Shift so just hardwire these bits to Ctl and Shift
-		if(self.CtlDown) then
+		if(InputKeyHelper:IsCtlDown()) then
 			commandBits = bit.bor(commandBits, Move.Crouch)
 		else
 			commandBits = bit.band(commandBits, bit.bnot(Move.Crouch))
 		end
 
-		if(self.ShiftDown) then
+		if(InputKeyHelper:IsShiftDown()) then
 			commandBits = bit.bor(commandBits, Move.MovementModifier)
 		else
 			commandBits = bit.band(commandBits, bit.bnot(Move.MovementModifier))
