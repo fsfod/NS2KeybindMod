@@ -73,7 +73,7 @@ function KeybindMapper:FixUpGUIFeedback()
 	
 	GUIFeedback.OnKeybindsChanged = function(selfArg,keyChanges)
    	if(keyChanges["OpenFeedback"]) then
-			selfArg.feedbackText:SetText(KeyBindInfo_FillInBindKeys("Press @OpenFeedback@ to give us feedback"))
+			//selfArg.feedbackText:SetText(KeyBindInfo_FillInBindKeys("Press @OpenFeedback@ to give us feedback"))
 			local key = KeyBindInfo:GetBoundKey("OpenFeedback")
 			
 			selfArg.OpenFeedbackKey = (key and InputKey[key]) or false
@@ -87,7 +87,7 @@ function KeybindMapper:GUIFeedbackCreated(selfArg)
 			
 	selfArg.OpenFeedbackKey = (key and InputKey[key]) or false
 	
-	selfArg.feedbackText:SetText(KeyBindInfo_FillInBindKeys("Press @OpenFeedback@ to give us feedback"))
+	//selfArg.feedbackText:SetText(KeyBindInfo_FillInBindKeys("Press @OpenFeedback@ to give us feedback"))
 	
 	KeyBindInfo:RegisterForKeyBindChanges(selfArg, "OnKeybindsChanged")
 end
