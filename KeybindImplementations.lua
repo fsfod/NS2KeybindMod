@@ -34,6 +34,7 @@ KeybindMapper:LinkBindToConsoleCmd("JoinAliens", "j2")
 KeybindMapper:LinkBindToConsoleCmd("ReadyRoom", "rr")
 
 KeybindMapper:LinkBindToConsoleCmd("NextIdleWorker", "gotoidleworker")
+KeybindMapper:LinkBindToConsoleCmd("ExitCommandStructure", "logout")
 
 --todo find a way to get team member count and use it here
 local function JoinRandomTeam()
@@ -135,5 +136,55 @@ end
 
 
 
+local SayingsMenu = {
+  {
+    MenuIndex = 1,
+    "Saying_Acknowledge",
+    "Saying_NeedMedpack",
+    "Saying_NeedAmmo",
+    "Saying_NeedOrder"
+  },
+
+  {
+    MenuIndex = 2,
+    "Saying_FollowMe",
+	  "Saying_LetsMove",
+	  "Saying_CoveringYou",
+	  "Saying_Hostiles",
+	},
+  
+  {
+    MenuIndex = 1,
+	  "Saying_Needhealing",
+	  "Saying_Followme",
+    "Saying_Chuckle",
+  }
+}
+
+local LastSayTrigger = 1
+
+local function TriggerSaying(sayingIndex, sayingsMenu)
+
+  if(Client.GetTime()-LastSayTrigger < 1) then
+    
+  end
+  
+  LastSayTrigger = Client.GetTime() 
+  
+  local message = BuildExecuteSayingMessage(sayingIndex, sayingsMenu)
+
+  Client.SendNetworkMessage("ExecuteSaying", message, true)
+end
+
+
+for _,list in ipairs(SayingsMenu) do
+
+  local sayingsMenu = list.MenuIndex
+
+  for sayingIndex, bindName in ipairs(list) do
+    KeybindMapper:LinkBindToFunction(bindName, TriggerSaying, "down", sayingIndex, sayingsMenu)
+  end
+end
+
 KeybindMapper:LinkBindToFunction("DropAmmo", function() DropTargetedTech(kTechId.AmmoPack) end) 
-KeybindMapper:LinkBindToFunction("DropHealth", function() DropTargetedTech(kTechId.MedPack) end)  
+KeybindMapper:LinkBindToFunction("DropHealth", function() DropTargetedTech(kTechId.MedPack) end)

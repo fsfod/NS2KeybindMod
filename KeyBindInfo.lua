@@ -131,6 +131,7 @@ KeyBindInfo.CommanderHotKeys = {
 		Label = "Commander Hot Keys",
 
 		Keybinds = {
+		  {"ExitCommandStructure", "Exit Hive/CC", ""},
 			{"CommHotKey1", "HotKey 1", "Q"},
 			{"CommHotKey2", "HotKey 2", "W"},
 			{"CommHotKey3", "HotKey 3", "E"},
@@ -179,7 +180,7 @@ KeyBindInfo.HiddenKeybinds = {
 			{"ToggleDebugging"},
 		}
 }
-/*
+
 KeyBindInfo.MarineSayings = {
 		OverrideGroup = true,
 		Name = "MarineSayings",
@@ -211,7 +212,7 @@ KeyBindInfo.AlienSayings = {
 			{"Saying_Chuckle", "Chuckle", ""},
 		}
 }
-*/
+
 KeyBindInfo.EngineProcessed = {
 	ToggleConsole = true,
 	ActivateSteamworksOverlay = true,
@@ -277,6 +278,9 @@ function KeyBindInfo:AddDefaultKeybindGroups()
   else
     self:AddKeybindGroup(self.MiscKeybinds)
 	  self:AddKeybindGroup(self.HiddenKeybinds)
+	  self:AddKeybindGroup(self.MarineSayings)
+	  self:AddKeybindGroup(self.AlienSayings)
+	  
 	  self:AddKeybindGroup(self.CommanderShared)
 	  self:AddKeybindGroup(self.MarineCommander)
 	  self:AddKeybindGroup(self.AlienCommander)

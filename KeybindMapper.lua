@@ -143,6 +143,8 @@ function KeybindMapper:Startup()
 	
 	self.IsShutDown = false
 	self:RefreshInputKeybinds()
+
+	PlayerEvents:HookTeamChanged(self, "OnPlayerTeamChange")
 end
 
 function KeybindMapper:ShutDown()
@@ -164,6 +166,8 @@ function KeybindMapper:ShutDown()
 
 	self.ConsoleCmdKeys = {}
 	self.Keybinds = {}
+	
+	PlayerEvents.UnregisterAllCallbacks(self)
 end
 
 function KeybindMapper:FullResetState()
@@ -214,6 +218,7 @@ function KeybindMapper:RefreshInputKeybinds()
 end
 
 function KeybindMapper:ReloadKeybindGroups()
+
 	if(#self.OverrideGroups ~= 0) then
 		local old = self.OverrideGroups
 		self.OverrideGroups = {}
@@ -431,12 +436,25 @@ function KeybindMapper:OnCommander(CommanderSelf)
 	self:ResetInputStateData("OnCommander")
 end
 
+function KeybindMapper:OnPlayerTeamChange(newTeam, oldTeam)
+
+  self:DeactivateKeybindGroup("MarineSayings")
+  self:DeactivateKeybindGroup("AlienSayings")
+  
+  if(newTeam == kMarineTeamType) then
+    self:ActivateKeybindGroup("MarineSayings")
+  elseif(newTeam == kAlienTeamType) then
+    self:ActivateKeybindGroup("AlienSayings")
+  end
+  
+end
+
 function KeybindMapper:OnUnCommander()
-	
+
 	if(self.IsShutDown) then
 		return
 	end
-	
+
 	self.IsCommander = false
 	self:DeactivateKeybindGroup("CommanderShared")
 	self:DeactivateKeybindGroup("MarineCommander")
