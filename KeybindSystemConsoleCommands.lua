@@ -1,3 +1,6 @@
+//
+//   Created by:   fsfod
+//
 
 function Bind_ConsoleCommand(key, ...)
 	
