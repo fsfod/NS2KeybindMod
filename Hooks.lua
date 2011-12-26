@@ -163,9 +163,9 @@ function KeybindMapper:Pre_SendKeyEvent(HookHandle, _, key, down, IsRepeat)
 	end
 
 	if(key ~= InputKey.MouseX and key ~= InputKey.MouseY) then 
-		local keystring  = InputKeyHelper:ConvertToKeyName(key)
+		local keystring = InputKeyHelper:ConvertToKeyName(key, down)
 
-		if(down) then
+		if(down or InputKey.MouseZ) then
  			handled = self:OnKeyDown(keystring)
 		else
 			handled = self:OnKeyUp(keystring)
@@ -187,7 +187,7 @@ function KeybindMapper:Post_SendKeyEvent(HookHandle, _, key, down)
 	local handled = HookHandle:GetReturn()
 
 	if(not handled) then
-		local keystring = InputKeyHelper:ConvertToKeyName(key)
+		local keystring = InputKeyHelper:ConvertToKeyName(key, down)
 
 		HookHandle:SetReturn(not self:CanKeyFallThrough(keystring))
 	end
