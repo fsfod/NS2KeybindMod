@@ -165,7 +165,7 @@ function KeybindMapper:Pre_SendKeyEvent(HookHandle, _, key, down, IsRepeat)
 	if(key ~= InputKey.MouseX and key ~= InputKey.MouseY) then 
 		local keystring = InputKeyHelper:ConvertToKeyName(key, down)
 
-		if(down or InputKey.MouseZ) then
+		if(down or key == InputKey.MouseZ) then
  			handled = self:OnKeyDown(keystring)
 		else
 			handled = self:OnKeyUp(keystring)

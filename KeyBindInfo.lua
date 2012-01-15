@@ -72,6 +72,7 @@ KeyBindInfo.ActionKeybinds = {
     	{"Use", "Use", "E"},
     	{"Drop", "Drop weapon", "G"},
   		{"Buy",  "Buy/evolve menu", "B"},
+  		{"ToggleFlashlight", "Toggle Flashlight", "F"},
     	{"Taunt", "Taunt", "Q"},
     	{"ShowMap", "Show MiniMap", "C"},
 			{"ToggleSayings1","Sayings #1", "Z"},
@@ -88,7 +89,6 @@ KeyBindInfo.ActionKeybinds = {
     	{"Weapon3", "Weapon #3", "Num3"},
     	{"Weapon4", "Weapon #4", "Num4"},
     	{"Weapon5", "Weapon #5", "Num5"},
-    	{"ToggleFlashlight", "Toggle Flashlight", "F"},
     }
 }
 
@@ -119,6 +119,7 @@ KeyBindInfo.CommanderShared = {
 		Label = "Commander Shared Overrides",
 		
 		Keybinds = {
+		  {"ExitCommandStructure", "Exit Hive/CC", ""},
 			{"NextIdleWorker", "Select Next Idle Worker", "H"},
 			{"ScrollForward", 	"Scroll View Forward",	"Up"},
 			{"ScrollBackward", 	"Scroll View Backward",	"Down"},
@@ -134,7 +135,6 @@ KeyBindInfo.CommanderHotKeys = {
 		Label = "Commander Hot Keys",
 
 		Keybinds = {
-		  {"ExitCommandStructure", "Exit Hive/CC", ""},
 			{"CommHotKey1", "HotKey 1", "Q"},
 			{"CommHotKey2", "HotKey 2", "W"},
 			{"CommHotKey3", "HotKey 3", "E"},
@@ -256,7 +256,10 @@ function KeyBindInfo:Init(Standalone)
     end
 	  
 		self:AddDefaultKeybindGroups()
-		self:ReloadKeyBindInfo()
+		
+		if(StartupLoader.LoadCompleted) then
+		  self:ReloadKeyBindInfo()
+		end
 	end
 end
 
@@ -274,6 +277,16 @@ end
 function KeyBindInfo:AddDefaultKeybindGroups()
   
   self:AddKeybindGroup(self.MovementKeybinds)
+  
+  if(not self.Standalone) then
+    
+    local lastWeapon = {
+      "LastWeapon", "Last used weapon", ""
+    }
+    
+    table.insert(KeyBindInfo.ActionKeybinds.Keybinds, lastWeapon)
+  end
+  
 	self:AddKeybindGroup(self.ActionKeybinds)
 
   if(self.Standalone) then

@@ -1,6 +1,7 @@
 //
 //   Created by:   fsfod
 //
+
 --[[
 	Public Api
 
@@ -98,13 +99,17 @@ MovementKeybinds.MoveLeft[4] = MovementKeybinds.MoveRight
 MovementKeybinds.MoveRight[4] = MovementKeybinds.MoveLeft
 
 function KeybindMapper:OnLoad()
-	//self:LoadScript("lua/Hooks.lua")
-
-	KeyBindInfo:Init()
-	self:Init()
 	
-	//self:LoadScript("lua/KeybindSystemConsoleCommands.lua")
-	//self:LoadScript("lua/KeybindImplementations.lua")
+	KeyBindInfo:Init()
+	
+	if(not StartupLoader.IsMainVM) then
+	  self:Init()
+	end
+end
+
+function KeybindMapper:OnClientLoadComplete()
+  KeyBindInfo:ReloadKeyBindInfo()
+  self:RefreshInputKeybinds()
 end
 
 function KeybindMapper:OnClientLuaFinished()
@@ -145,7 +150,6 @@ function KeybindMapper:Startup()
 	self:Init()
 	
 	self.IsShutDown = false
-	self:RefreshInputKeybinds()
 
 	PlayerEvents:HookTeamChanged(self, "OnPlayerTeamChange")
 end
@@ -183,9 +187,11 @@ function KeybindMapper:ResetInputStateData(caller)
 	--Shared.Message("ResetInputStateData "..caller)
 	self.MovementVector = Vector(0,0,0)
 	self.MoveInputBitFlags = 0
+	
+	self.PulseMoveBits = 0
+	
 	self.RunningActions = {}
 	self.EatKeyUp = {}
-
 	
 	for bindname,action in pairs(self.MovmentVectorActions) do
 	  action.MovementVector.Down = false
@@ -235,22 +241,34 @@ function KeybindMapper:ReloadKeybindGroups()
 	self.CommanderHotKeys = KeyBindInfo:GetGroupBoundKeys("CommanderHotKeys")
 end
 
-local PulseBitTickAction = function(state) 
+local PulseBitTickAction = function(state)
+
+  if(state.TickCount == 1 and state.WeaponSelect) then
+    KeybindMapper:CheckWeaponSelectIntent(state.BitName)
+  end
+  
 	if(state.TickCount == 2) then
-			KeybindMapper:HandleInputBit(Move[state.BitName], false)
+			KeybindMapper:SetInputBit(Move[state.BitName], false)
 		return true
 	end
 end
 
-function KeybindMapper:AddPulsedInputBitAction(bitname)
-	
-	local TickState = {BitName = bitname}
+function KeybindMapper:PulseInputBit(bitname, action)
+  
+	assert(Move[bitname], "no input bit named "..bitname)
+	assert(action)
+
+	self.PulseMoveBits = bit.bor(self.PulseMoveBits, Move[bitname])
+end
+
+function KeybindMapper:AddPulsedInputBitAction(bitname, weaponSelector)
+
 	local Action = {
 		InputBit = bitname,
+		WeaponSelect = weaponSelector,
+		
 		OnDown = function()
-			KeybindMapper:HandleInputBit(Move[bitname], true)
-			
-			self:AddTickAction(PulseBitTickAction, TickState, bitname, "NoReplace")
+			self:PulseInputBit(bitname, bitname)
 		end,
 	}
 
@@ -289,10 +307,10 @@ function KeybindMapper:SetupMoveVectorAndInputBitActions()
 		
 	for _,bitname in ipairs(MoveEnum) do
 		if(not SkipMoveBits[bitname] and not PulsedInputBits[bitname]) then
-		 local action = KeybindMapper.CreateActionHelper(true, false, self,  Move[bitname])
+		 local action = KeybindMapper.CreateActionHelper(true, true, self,  Move[bitname])
 		 	action.InputBit = bitname
-			action.OnDown = self.HandleInputBit
-		 	action.OnUp = self.HandleInputBit
+			action.OnDown = self.SetInputBit
+		 	action.OnUp = self.SetInputBit
 		 
 		 	self.InputBitActions[Move[bitname]] = action
 		 	self:RegisterActionToBind(bitname, action)
@@ -545,11 +563,6 @@ function KeybindMapper:OnKeyDown(key)
 		return false
 	end
 
-	--don't trigger any actions if the key being held down and were just getting key repeats for it
-	if(IsRepeat) then
-		return true
-	end
-
 	--The Engines Console input event handler should be filtering all key input events when the console is open
 	--so they don't get sent to other input handlers but doesn't for some dumb reason
 	if(key == self.ConsoleKey) then
@@ -559,6 +572,7 @@ function KeybindMapper:OnKeyDown(key)
 
 	if(self.FilteredKeys[key]) then
 		for _,action in ipairs(self.FilteredKeys[key]) do
+		  
 			--if a filter action returns true we don't let anything else process this key event and just return
 			if(self:ActivateAction(action, key, true)) then
 				return true
@@ -566,17 +580,17 @@ function KeybindMapper:OnKeyDown(key)
 		end
 	end
 
-	if(not self.IsCommander) then
-		local action,overrideGroup = self:FindKeysAction(key)
-		
-		if(action) then
-				self:ActivateAction(action, key, true)
-			return true
-		end
-	else
-		return self:CommaderOnKey(key, true)
+	if(self.IsCommander) then
+	  return self:CommaderOnKey(key, true)
 	end
-	
+	  
+  local action,overrideGroup = self:FindKeysAction(key)
+		
+	if(action) then
+	  self:ActivateAction(action, key, true)
+	 return true
+	end
+
 	return false
 end
 
@@ -717,7 +731,7 @@ function KeybindMapper:ActivateAction(action, key, down)
 	return result
 end
 
-function KeybindMapper:HandleInputBit(inputbit, keydown)
+function KeybindMapper:SetInputBit(inputbit, keydown)
 
 	if(keydown) then
 		--fix shooting when clicking close in buy menus
@@ -754,12 +768,19 @@ function KeybindMapper:HandleMovmentVector(movedir, keydown)
 	end
 end
 
+local bor = bit.bor
+
+//this is called from our OverrideInput hook
 function KeybindMapper:FillInMove(input, isCommander)
+	
+	local commandBits = bit.bor(self.MoveInputBitFlags, self.PulseMoveBits)
+	
+	self.PulseMoveBits = 0
+	
 	if(not isCommander) then
 		input.move = self.MovementVector
-		input.commands = self.MoveInputBitFlags
+		input.commands = commandBits
 	else
-		local commandBits = self.MoveInputBitFlags
 
 		--not everyone has Crouch and MovementModifier bound to Ctl and Shift so just hardwire these bits to Ctl and Shift
 		if(InputKeyHelper:IsCtlDown()) then

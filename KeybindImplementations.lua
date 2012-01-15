@@ -2,7 +2,6 @@
 //   Created by:   fsfod
 //
 
-
 KeybindMapper:LinkBindToFunction("OpenFeedback",  ShowFeedbackPage)
 
 local OpenChat = false
@@ -190,4 +189,67 @@ for _,list in ipairs(SayingsMenu) do
 end
 
 KeybindMapper:LinkBindToFunction("DropAmmo", function() DropTargetedTech(kTechId.AmmoPack) end) 
-KeybindMapper:LinkBindToFunction("DropHealth", function() DropTargetedTech(kTechId.MedPack) end)
+KeybindMapper:LinkBindToFunction("DropHealth", function() DropTargetedTech(kTechId.MedPack) end)  
+
+local weaponSlots = {
+  BiteLeap = 1,
+  BileBomb = 4,
+  CystAbility = 3,
+  Gore = 1,
+  HydraAbility = 2,
+
+
+}
+
+KeybindMapper.PrevWeaponSlot = 1
+KeybindMapper.CurrentWeaponSlot = 1
+
+local slotNumberToMoveBit = {
+  "Weapon1",
+  "Weapon2",
+  "Weapon3",
+  "Weapon4",
+  "Weapon5",
+  "Weapon6",
+}
+
+local currentWeapon = 1
+
+Event.Hook("UpdateClient", function()
+  
+  local player = Client.GetLocalPlayer()
+  
+  if(not player) then
+    return
+  end
+  
+  local currentWeaponEntity = player:GetActiveWeapon()
+  
+  if(currentWeaponEntity) then
+    
+    local slot = currentWeaponEntity:GetHUDSlot()
+    
+    if(slot ~= currentWeapon) then
+      //RawPrint("Weapon slot changed from %i to %i", currentWeapon, slot)
+      
+      currentWeapon = slot
+      
+      KeybindMapper:WeaponChanged(slot)
+    end
+  end
+  
+end)
+
+local PrevWeaponSlot = 1
+local CurrentWeaponSlot = 1
+
+function KeybindMapper:WeaponChanged(weaponSlot, name)
+
+  PrevWeaponSlot = CurrentWeaponSlot
+  CurrentWeaponSlot = weaponSlot
+  //player.showSayings
+end
+
+KeybindMapper:LinkBindToFunction("LastWeapon", function()
+  KeybindMapper:PulseInputBit(slotNumberToMoveBit[PrevWeaponSlot], "LastWeapon")
+end)
