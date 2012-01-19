@@ -252,7 +252,7 @@ local PulseBitTickAction = function(state)
 		return true
 	end
 end
-
+		
 function KeybindMapper:PulseInputBit(bitname, action)
   
 	assert(Move[bitname], "no input bit named "..bitname)
@@ -265,6 +265,7 @@ function KeybindMapper:AddPulsedInputBitAction(bitname, weaponSelector)
 
 	local Action = {
 		InputBit = bitname,
+		UpdatesMove = true,
 		WeaponSelect = weaponSelector,
 		
 		OnDown = function()
@@ -307,10 +308,11 @@ function KeybindMapper:SetupMoveVectorAndInputBitActions()
 		
 	for _,bitname in ipairs(MoveEnum) do
 		if(not SkipMoveBits[bitname] and not PulsedInputBits[bitname]) then
-		 local action = KeybindMapper.CreateActionHelper(true, true, self,  Move[bitname])
+		 local action = KeybindMapper.CreateActionHelper(true, true, self,  bitname)
 		 	action.InputBit = bitname
 			action.OnDown = self.SetInputBit
 		 	action.OnUp = self.SetInputBit
+		 	action.UpdatesMove = true
 		 
 		 	self.InputBitActions[Move[bitname]] = action
 		 	self:RegisterActionToBind(bitname, action)
@@ -330,6 +332,9 @@ function KeybindMapper:SetupMoveVectorAndInputBitActions()
 		 	action.MovementVector = movdir
 		 	action.OnDown = self.HandleMovmentVector
 		 	action.OnUp = self.HandleMovmentVector
+		 	
+		 	action.UpdatesMove = true
+		 	
 		 self.MovmentVectorActions[bindname] = action
 		 self:RegisterActionToBind(bindname, action)
 	end
@@ -557,6 +562,7 @@ local MenuPassThrough = {
 }
 
 
+
 function KeybindMapper:OnKeyDown(key)
 
 	if(self.ChatOpen or self.InGameMenuOpen or (self.BuyMenuOpen and MenuPassThrough[key])) then
@@ -580,19 +586,80 @@ function KeybindMapper:OnKeyDown(key)
 		end
 	end
 
+  local action,overrideGroup
+
 	if(self.IsCommander) then
-	  return self:CommaderOnKey(key, true)
-	end
+	  action = self:CommaderOnKey(key, true)
 	  
-  local action,overrideGroup = self:FindKeysAction(key)
-		
-	if(action) then
-	  self:ActivateAction(action, key, true)
-	 return true
+	  //CommaderOnKey excuted the bind directly nothing else todo
+	  if(action == true) then
+      return true
+    end
+	else
+	  action, overrideGroup = self:FindKeysAction(key)
+	end
+  
+	if(not action) then
+	  return false
+	end
+  
+	if(key == "MouseWheelUp" or key == "MouseWheelDown") then
+    self:HandleMouseWheel(key, action)
+  else
+    self:ActivateAction(action, key, true)
 	end
 
-	return false
+	return true
 end
+
+local function MouseWheelTick(state)
+      
+  if(state.TickCount == state.EndTick) then
+    KeybindMapper:ActivateAction(state.Action, state.Key, false)
+    
+   return true
+  end
+  
+  //RawPrint(state.Key, " prediction=", Shared.GetIsRunningPrediction()) 
+  //state.ExtraTickSet = false
+
+  return false
+end
+
+local lastClick = Shared.GetTime()
+
+function KeybindMapper:HandleMouseWheel(key, action)
+  
+  local state = self:GetActiveTickAction(key)
+  
+  if(state) then
+    return
+    
+    /*
+    //we've already extended this action one tick already
+    if(true or state.ExtraTickSet) then
+      return
+    end
+    
+    state.ExtraTickSet = true
+    state.EndTick = state.EndTick+2
+    */
+   
+  end
+  
+  self:ActivateAction(action, key, true)
+  
+  local TickState = {
+    Key = key,
+    EndTick = 2,
+    Action = action
+  }
+
+  //RawPrint("HandleMouseWheel",key, "prediction=", Shared.GetIsRunningPrediction()) 
+
+  self:AddTickAction(MouseWheelTick, TickState, key, "NoReplace")
+end
+
 
 local HotkeyToButton = { 
   CommHotKey1 = 1,
@@ -674,8 +741,7 @@ function KeybindMapper:CommaderOnKey(key, down)
 
 	
 	if(action) then
-	 		self:ActivateAction(action, key, down)
-	 	return true
+	 	return action
 	end
 	
 	return false
@@ -731,17 +797,17 @@ function KeybindMapper:ActivateAction(action, key, down)
 	return result
 end
 
-function KeybindMapper:SetInputBit(inputbit, keydown)
+function KeybindMapper:SetInputBit(bitName, keydown, keyName)
 
 	if(keydown) then
 		--fix shooting when clicking close in buy menus
-		if(self.BuyMenuOpen and (inputbit == Move.PrimaryAttack  or inputbit == Move.SecondaryAttack)) then
+		if(self.BuyMenuOpen and (bitName == "PrimaryAttack"  or bitName == "SecondaryAttack")) then
 			return
 		end
 		
-		self.MoveInputBitFlags = bit.bor(self.MoveInputBitFlags, inputbit)
+		self.MoveInputBitFlags = bit.bor(self.MoveInputBitFlags, Move[bitName])
 	else
-		self.MoveInputBitFlags = bit.band(self.MoveInputBitFlags, bit.bnot(inputbit))
+		self.MoveInputBitFlags = bit.band(self.MoveInputBitFlags, bit.bnot(Move[bitName]))
 	end
 end
 
@@ -877,14 +943,15 @@ function KeybindMapper:InputTick()
 	end
 end
 
-function KeybindMapper:IsTickActionActive(id)
+function KeybindMapper:GetActiveTickAction(id)
+	
 	for i,action in ipairs(self.RunningActions) do
 		if(action.ID == id) then
-			return true
+			return action
 		end
 	end
 	
-	return false
+	return nil
 end
 
 function KeybindMapper:LinkBindToFunction(bindname, func, updown, ...)
