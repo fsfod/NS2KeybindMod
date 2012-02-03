@@ -27,26 +27,6 @@ function KeybindMapper:SetupHooks()
 	self:RawHookClassFunction("Embryo", "OverrideInput", "OverrideInput_Hook")
 	self:ReplaceClassFunction("Embryo", "OverrideInput", "Embryo_OverrideInput")
 
-	self:PostHookClassFunction("Marine", "CloseMenu",function(entitySelf)
-    if(entitySelf == Client.GetLocalPlayer() and not entitySelf.showingBuyMenu and self.BuyMenuOpen) then
-	    self:BuyMenuClosed()
-    end
-  end)
-
-	self:PostHookClassFunction("Armory", "OnUse", function(objSelf, player)
-    if(not Shared.GetIsRunningPrediction() and player == Client.GetLocalPlayer() and player:GetIsAlive() and player.showingBuyMenu) then
-      self:BuyMenuOpened()
-    end
-  end)
-
-	self:PostHookFunction("ArmoryUI_Close", function()
-	  if(self.BuyMenuOpen) then
-		  self:BuyMenuClosed()
-		end
-	end)
-	
-	self:PostHookClassFunction("Alien", "CloseMenu", "AlienBuy_Hook")
-	self:PostHookClassFunction("Alien", "Buy", "AlienBuy_Hook")
 	
 	ClassHooker:SetClassCreatedIn("GUIFeedback", "lua/GUIFeedback.lua")
 	self:PostHookClassFunction("GUIFeedback", "Initialize", "GUIFeedbackCreated")

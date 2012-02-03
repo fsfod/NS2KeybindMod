@@ -162,7 +162,6 @@ function KeybindMapper:ShutDown()
 
 	self.ChatOpen = false
 	self.InGameMenuOpen = false
-	self.BuyMenuOpen = false
 	self.ConsoleOpen = false
 
 	self.CurrentPlayerClass = nil
@@ -404,14 +403,6 @@ function KeybindMapper:InternalSetKeyAction(key, action)
 	self.Keybinds[key] = action
 end
 
-function KeybindMapper:BuyMenuOpened()
-	self.BuyMenuOpen = true
-end
-
-function KeybindMapper:BuyMenuClosed()
-	self.BuyMenuOpen = false
-end
-
 function KeybindMapper:InGameMenuOpened()
 	
 	if(self.IsShutDown) then
@@ -565,7 +556,7 @@ local MenuPassThrough = {
 
 function KeybindMapper:OnKeyDown(key)
 
-	if(self.ChatOpen or self.InGameMenuOpen or (self.BuyMenuOpen and MenuPassThrough[key])) then
+	if(MouseStateTracker:IsStateActive("chat") or self.InGameMenuOpen or (MouseStateTracker:IsStateActive("buymenu") and MenuPassThrough[key])) then
 		return false
 	end
 
@@ -749,7 +740,7 @@ end
 
 function KeybindMapper:OnKeyUp(key)
 
-	if(self.ChatOpen or self.InGameMenuOpen or (self.BuyMenuOpen and MenuPassThrough[key])) then
+	if(MouseStateTracker:IsStateActive("chat") or self.InGameMenuOpen or (MouseStateTracker:IsStateActive("buymenu") and MenuPassThrough[key])) then
 		return false
 	end
 
@@ -801,7 +792,7 @@ function KeybindMapper:SetInputBit(bitName, keydown, keyName)
 
 	if(keydown) then
 		--fix shooting when clicking close in buy menus
-		if(self.BuyMenuOpen and (bitName == "PrimaryAttack"  or bitName == "SecondaryAttack")) then
+		if(MouseStateTracker:IsStateActive("buymenu") and (bitName == "PrimaryAttack"  or bitName == "SecondaryAttack")) then
 			return
 		end
 		

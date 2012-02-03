@@ -191,15 +191,6 @@ end
 KeybindMapper:LinkBindToFunction("DropAmmo", function() DropTargetedTech(kTechId.AmmoPack) end) 
 KeybindMapper:LinkBindToFunction("DropHealth", function() DropTargetedTech(kTechId.MedPack) end)  
 
-local weaponSlots = {
-  BiteLeap = 1,
-  BileBomb = 4,
-  CystAbility = 3,
-  Gore = 1,
-  HydraAbility = 2,
-
-
-}
 
 KeybindMapper.PrevWeaponSlot = 1
 KeybindMapper.CurrentWeaponSlot = 1
