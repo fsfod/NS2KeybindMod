@@ -790,6 +790,8 @@ end
 
 function KeybindMapper:SetInputBit(bitName, keydown, keyName)
 
+  assert(Move[bitName], "Uknowned input bit "..(bitName or "nil")) 
+
 	if(keydown) then
 		--fix shooting when clicking close in buy menus
 		if(MouseStateTracker:IsStateActive("buymenu") and (bitName == "PrimaryAttack"  or bitName == "SecondaryAttack")) then

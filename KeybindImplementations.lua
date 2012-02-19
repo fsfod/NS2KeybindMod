@@ -50,52 +50,66 @@ end
 KeybindMapper:LinkBindToFunction("JoinRandom", JoinRandomTeam)
 
 local NumberToInputBit = {
-	Move.Weapon1,
-	Move.Weapon2,
-	Move.Weapon3,
-	Move.Weapon4,
-	Move.Weapon5,
+	"Weapon1",
+	"Weapon2",
+	"Weapon3",
+	"Weapon4",
+	"Weapon5",
 }
 
-function CheckSelectedCommandStructure()
-	--we still in the process of selecting the hotkey group
-	if(KeybindMapper:IsTickActionActive("SelectHotkeyGroup")) then
+local function SelectTick(state) 
+
+  if(state.TickCount == 2) then
+	  KeybindMapper:SetInputBit(state.InputBit, false)
+   
+   return state.Callback == nil
+	end
+	
+	if(state.TickCount == 3) then
+	  state.Callback()
+	 return true
+	end
+	
+	return false
+end
+
+function SelectCommandStructure(selectCompleteCallback)
+	--we stil in the process of selecting the hotkey group
+	if(KeybindMapper:GetActiveTickAction("SelectHotkeyGroup")) then
 		return 1
 	end
 
 	local player = Client.GetLocalPlayer()
 	local selectedEnts = player:GetSelection()
 
-	if(#selectedEnts ~= 1 or not Shared.GetEntity(selectedEnts[1]) or not Shared.GetEntity(selectedEnts[1]):isa("CommandStructure")) then
+  local firstEntity = #selectedEnts == 1 and not Shared.GetEntity(selectedEnts[1]) 
+
+	if(not firstEntity or not firstEntity:isa("CommandStructure") or not firstEntity:GetIsBuilt()) then
 
 		for i = 1,Player.kMaxHotkeyGroups do
 		 local group = player.hotkeyGroups[i]
 
   		if(#group == 1) then
+  		  
 				local entity = Shared.GetEntity(group[1])
 				if(entity and entity:isa("CommandStructure")) then	
 					local inputbit = NumberToInputBit[i]
 
 					--Workaround for Commander:SelectHotkeyGroup not syncing changes to the server
-					KeybindMapper:HandleInputBit(inputbit, true)
+					KeybindMapper:SetInputBit(inputbit, true)
 					
-					KeybindMapper:AddTickAction(function(state) 
-						if(state.TickCount == 2) then
-							KeybindMapper:HandleInputBit(inputbit, false)
-						 return true
-						end
-					end, nil, "SelectHotkeyGroup", "NoReplace")
+					KeybindMapper:AddTickAction(SelectTick, {InputBit = inputbit, Callback = selectCompleteCallback}, "SelectHotkeyGroup", "NoReplace")
 
-					return 1
+					return
 				end
+				
   		end
   	end
 
-		 Shared.Message("Failed to find CommandStructure to select")
-		return 0
+	  Shared.Message("Failed to find CommandStructure to select")
+	else
+	  selectCompleteCallback()
 	end
-	
-	return 2
 end
  
 local function DropTargetedTech(techId)
@@ -189,8 +203,26 @@ for _,list in ipairs(SayingsMenu) do
 end
 
 KeybindMapper:LinkBindToFunction("DropAmmo", function() DropTargetedTech(kTechId.AmmoPack) end) 
-KeybindMapper:LinkBindToFunction("DropHealth", function() DropTargetedTech(kTechId.MedPack) end)  
+KeybindMapper:LinkBindToFunction("DropHealth", function() DropTargetedTech(kTechId.MedPack) end)
 
+KeybindMapper:LinkBindToFunction("DropCyst", function() 
+  
+  SelectCommandStructure(function()
+    local player = Client.GetLocalPlayer()
+	
+	  if(not player:isa("Commander")) then
+		  return
+	  end
+	  
+	  //FIXME need todo this some other way
+	  //return to the root menu if we not at it already
+	  //if(player.menuTechId ~= kTechId.RootMenu) then
+	  // player.buttonsScript:ButtonPressed(1)
+	  //end
+	  
+	  player.buttonsScript:ButtonPressed(1)
+  end)
+end)
 
 KeybindMapper.PrevWeaponSlot = 1
 KeybindMapper.CurrentWeaponSlot = 1

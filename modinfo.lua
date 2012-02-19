@@ -1,5 +1,5 @@
 author = "fsfod"
-EngineBuild = 162
+EngineBuild = 195
 ModTableName = "KeybindMapper"
 
 ScriptList = {
@@ -14,4 +14,4 @@ Dependencies = {
   "BaseUIControls"
 }
 
-ValidVM = "client"
+ValidVM = "main_client"

@@ -167,9 +167,9 @@ KeyBindInfo.AlienCommander = {
 		OverrideGroup = true,
 		Name = "AlienCommander",
 		Label = "Alien Commander Overrides",  
-		
+
 		Keybinds = {
-			{"PlaceInfest",	"Drop infestation patch", "Y"},
+			{"DropCyst",	"Drop Cyst", ""},
 		}
 }
 
