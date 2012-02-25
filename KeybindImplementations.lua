@@ -49,7 +49,7 @@ end
 
 KeybindMapper:LinkBindToFunction("JoinRandom", JoinRandomTeam)
 
-local NumberToInputBit = {
+local WeaponSlotToInputBit = {
 	"Weapon1",
 	"Weapon2",
 	"Weapon3",
@@ -93,7 +93,7 @@ function SelectCommandStructure(selectCompleteCallback)
   		  
 				local entity = Shared.GetEntity(group[1])
 				if(entity and entity:isa("CommandStructure")) then	
-					local inputbit = NumberToInputBit[i]
+					local inputbit = WeaponSlotToInputBit[i]
 
 					--Workaround for Commander:SelectHotkeyGroup not syncing changes to the server
 					KeybindMapper:SetInputBit(inputbit, true)
@@ -227,14 +227,6 @@ end)
 KeybindMapper.PrevWeaponSlot = 1
 KeybindMapper.CurrentWeaponSlot = 1
 
-local slotNumberToMoveBit = {
-  "Weapon1",
-  "Weapon2",
-  "Weapon3",
-  "Weapon4",
-  "Weapon5",
-  "Weapon6",
-}
 
 local currentWeapon = 1
 
@@ -274,5 +266,5 @@ function KeybindMapper:WeaponChanged(weaponSlot, name)
 end
 
 KeybindMapper:LinkBindToFunction("LastWeapon", function()
-  KeybindMapper:PulseInputBit(slotNumberToMoveBit[PrevWeaponSlot], "LastWeapon")
+  KeybindMapper:PulseInputBit(WeaponSlotToInputBit[PrevWeaponSlot], "LastWeapon")
 end)

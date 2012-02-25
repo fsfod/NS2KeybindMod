@@ -18,13 +18,14 @@ if(not hotreload) then
 end
 
 function KeybindMapper:SetupHooks()
-	self:RawHookClassFunction("Commander", "OverrideInput", "OverrideInput_Hook")
+	self:RawHookClassFunction("Commander", "OverrideInput", "OverrideInput_Hook", PassHookHandle)
 	self:HookClassFunction("Commander", "OnInitLocalClient", "OnCommander")
 
-	self:RawHookClassFunction("Player", "OverrideInput", "OverrideInput_Hook")
-	self:RawHookClassFunction("AlienSpectator", "OverrideInput", "OverrideInput_Hook")
-	self:RawHookClassFunction("MarineSpectator", "OverrideInput", "OverrideInput_Hook")
-	self:RawHookClassFunction("Embryo", "OverrideInput", "OverrideInput_Hook")
+	self:RawHookClassFunction("Player", "OverrideInput", "OverrideInput_Hook", PassHookHandle)
+	self:RawHookClassFunction("AlienSpectator", "OverrideInput", "OverrideInput_Hook", PassHookHandle)
+	self:RawHookClassFunction("MarineSpectator", "OverrideInput", "OverrideInput_Hook", PassHookHandle)
+	self.GorgeHook = self:RawHookClassFunction("Gorge", "OverrideInput", "OverrideInput_Hook", PassHookHandle)
+	self:RawHookClassFunction("Embryo", "OverrideInput", "OverrideInput_Hook", PassHookHandle)
 	self:ReplaceClassFunction("Embryo", "OverrideInput", "Embryo_OverrideInput")
 
 	
@@ -89,9 +90,16 @@ function KeybindMapper:AlienBuy_Hook(entitySelf)
 	end
 end
 
-function KeybindMapper:OverrideInput_Hook(entitySelf, input)
-		self:InputTick()
-		self:FillInMove(input, entitySelf:isa("Commander"))
+function KeybindMapper:OverrideInput_Hook(hookHandle, entitySelf, input)
+
+  //were not the top hook make sure we don't get HOOKCEPTION no going deeper here for us
+  if(entitySelf.OverrideInput ~= hookHandle[3].Dispatcher and entitySelf:isa("Gorge")) then
+    return input
+  end
+
+	self:InputTick()
+	self:FillInMove(input, entitySelf:isa("Commander"))
+		
 	return input
 end
 
