@@ -194,13 +194,12 @@ KeyBindInfo.MarineSayings = {
 			{"Saying_NeedMedpack", "Need medpack", ""},
 			{"Saying_NeedAmmo", "Need ammo", ""},
 			{"Saying_NeedOrder", "Need orders", ""},
-			 
-			 
+
 			{"Saying_FollowMe",	"Follow me", ""},
 			{"Saying_LetsMove", "Let's move", ""},
 			{"Saying_CoveringYou", "Covering you", ""},
 			{"Saying_Hostiles", "Hostiles", ""},
-			{"Saying_Hostiles", "Taunt", ""},
+			{"Saying_Taunt", "Taunt", ""},
 		}
 }
 

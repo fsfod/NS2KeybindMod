@@ -167,6 +167,7 @@ local SayingsMenu = {
 	  "Saying_LetsMove",
 	  "Saying_CoveringYou",
 	  "Saying_Hostiles",
+	  "Saying_Taunt",
 	},
   
   {
@@ -234,10 +235,14 @@ Event.Hook("UpdateClient", function()
   
   local player = Client.GetLocalPlayer()
   
-  if(not player) then
+  if(not player or not player.GetActiveWeapon) then
     return
   end
-  
+
+  //if(Shared.GetIsRunningPrediction()) then
+  //  RawPrint(Shared.GetIsRunningPrediction())
+  //end
+
   local currentWeaponEntity = player:GetActiveWeapon()
   
   if(currentWeaponEntity) then

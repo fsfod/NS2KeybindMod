@@ -146,7 +146,7 @@ function KeybindMapper:Pre_SendKeyEvent(HookHandle, _, key, down, IsRepeat)
 		return
 	end
 
-	if((self.IsCommander or ScoreboardUI_GetVisible()) and (key == InputKey.MouseButton0 or key == InputKey.MouseButton1)) then
+	if((self.IsCommander or (ScoreboardUI_GetVisible and ScoreboardUI_GetVisible())) and (key == InputKey.MouseButton0 or key == InputKey.MouseButton1)) then
 		return
 	end
 
