@@ -363,7 +363,7 @@ function KeybindMapper:EscPressed()
   if(not self.IsCommander) then
     // Close buy menu if open, otherwise show in-game menu
     if not player or not player:CloseMenu(kClassFlashIndex) then
-      ShowInGameMenu()
+      MainMenu_Open()
      return true
     end
   end

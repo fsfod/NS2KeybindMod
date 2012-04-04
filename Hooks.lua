@@ -34,14 +34,14 @@ function KeybindMapper:SetupHooks()
 
 	LoadTracker:HookFileLoadFinished("lua/GUIFeedback.lua", self, "FixUpGUIFeedback")
 
-	self:HookFunction("ShowInGameMenu", "InGameMenuOpened")
+	self:HookFunction("MainMenu_Open", "InGameMenuOpened")
 	self:HookFunction("ChatUI_SubmitChatMessageBody", "ChatClosed")
 	
 	self:HookFunction("MainMenu_ReturnToGame", "InGameMenuClosed")
 	
 	ClassHooker:SetClassCreatedIn("GUIManager", "lua/GUIManager.lua")
-	self:HookClassFunction("GUIManager", "SendKeyEvent", "Pre_SendKeyEvent"):SetPassHandle(true)
-	self:PostHookClassFunction("GUIManager", "SendKeyEvent", "Post_SendKeyEvent"):SetPassHandle(true)
+	self:HookFunction("MouseTracker_SendKeyEvent", "Pre_SendKeyEvent"):SetPassHandle(true)
+	self:PostHookFunction("MouseTracker_SendKeyEvent", "Post_SendKeyEvent"):SetPassHandle(true)
 		
 	self:ReplaceFunction("ExitPressed", function() end)
 end
@@ -138,7 +138,7 @@ function KeybindMapper:Embryo_OverrideInput(entitySelf, input)
   return input
 end
 
-function KeybindMapper:Pre_SendKeyEvent(HookHandle, _, key, down, IsRepeat)
+function KeybindMapper:Pre_SendKeyEvent(HookHandle, key, down, IsRepeat)
  	local handled 
   
   --don't do anything if another hook has already handled it
@@ -166,7 +166,7 @@ function KeybindMapper:Pre_SendKeyEvent(HookHandle, _, key, down, IsRepeat)
 	end
 end
 
-function KeybindMapper:Post_SendKeyEvent(HookHandle, _, key, down)
+function KeybindMapper:Post_SendKeyEvent(HookHandle, key, down)
 
 	if(self.IsShutDown or key == InputKey.MouseX or key == InputKey.MouseY) then
 		return false
