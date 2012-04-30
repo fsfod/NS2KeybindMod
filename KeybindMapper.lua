@@ -294,13 +294,22 @@ local SkipMoveBits = {
 
 local PulsedInputBits = {
 	ToggleFlashlight = true,
+	Drop = true,
+	Taunt = true,
 	Buy = true,
+	NextWeapon = true,
+	PrevWeapon = true,
 	Weapon1 = true,
 	Weapon2 = true,
 	Weapon3 = true,
 	Weapon4 = true,
 	Weapon5 = true,
 	Weapon6 = true,
+	
+	ToggleVoteMenu = true,
+	ToggleSayings1 = true,
+	ToggleSayings2 = true,
+	
 }
 
 function KeybindMapper:SetupMoveVectorAndInputBitActions()

@@ -2,6 +2,10 @@
 //   Created by:   fsfod
 //
 
+if(StartupLoader.IsMainVM) then
+  return
+end
+
 KeybindMapper:LinkBindToFunction("OpenFeedback",  ShowFeedbackPage)
 
 local OpenChat = false
@@ -82,7 +86,7 @@ function SelectCommandStructure(selectCompleteCallback)
 	local player = Client.GetLocalPlayer()
 	local selectedEnts = player:GetSelection()
 
-  local firstEntity = #selectedEnts == 1 and not Shared.GetEntity(selectedEnts[1]) 
+  local firstEntity = #selectedEnts == 1 and Shared.GetEntity(selectedEnts[1]) 
 
 	if(not firstEntity or not firstEntity:isa("CommandStructure") or not firstEntity:GetIsBuilt()) then
 
@@ -120,7 +124,7 @@ local function DropTargetedTech(techId)
 		return
 	end
 
-	if((techId == kTechId.AmmoPack or techId == kTechId.MedPack)) then
+	if(techId == kTechId.AmmoPack or techId == kTechId.MedPack or techId == kTechId.NanoShield) then
 	  //stupid Commander:ProcessTechTreeActionForEntity does a check for active buttons serverside
 	  player.buttonsScript:ButtonPressed(3)
 	  
@@ -206,8 +210,27 @@ end
 KeybindMapper:LinkBindToFunction("DropAmmo", function() DropTargetedTech(kTechId.AmmoPack) end) 
 KeybindMapper:LinkBindToFunction("DropHealth", function() DropTargetedTech(kTechId.MedPack) end)
 
-KeybindMapper:LinkBindToFunction("DropCyst", function() 
-  
+KeybindMapper:LinkBindToFunction("NanoShield", function() DropTargetedTech(kTechId.NanoShield) end)
+
+KeybindMapper:LinkBindToFunction("Catalyze", function()
+  SelectCommandStructure(function()
+    local player = Client.GetLocalPlayer()
+	
+	  if(not player:isa("Commander")) then
+		  return
+	  end
+	  
+	  //FIXME need todo this some other way
+	  //return to the root menu if we not at it already
+	  if(player.menuTechId ~= kTechId.AssistMenu) then
+	   player.buttonsScript:ButtonPressed(3)
+	  end
+	  DropTargetedTech(kTechId.NutrientMist)
+  end)
+end)
+
+
+KeybindMapper:LinkBindToFunction("DropCyst", function()
   SelectCommandStructure(function()
     local player = Client.GetLocalPlayer()
 	
@@ -222,6 +245,7 @@ KeybindMapper:LinkBindToFunction("DropCyst", function()
 	  //end
 	  
 	  player.buttonsScript:ButtonPressed(1)
+	  player.buttonsScript:ButtonPressed(5)
   end)
 end)
 
@@ -273,3 +297,42 @@ end
 KeybindMapper:LinkBindToFunction("LastWeapon", function()
   KeybindMapper:PulseInputBit(WeaponSlotToInputBit[PrevWeaponSlot], "LastWeapon")
 end)
+
+local bor = bit.bor
+local cancelBits = bor(bor(Move.Weapon1, Move.SecondaryAttack), Move.ESC)
+
+
+local function ClogTick(state) 
+
+  local player = Client.GetLocalPlayer()
+
+  local moveBits = bit.bor(KeybindMapper.MoveInputBitFlags, KeybindMapper.PulseMoveBits or 0)
+
+  if(not player or not player:isa("Gorge") or not DropStructureAbility.kSupportedStructures[3]:IsAllowed(Client.GetLocalPlayer()) or
+     bit.band(moveBits, cancelBits) ~= 0 )  then
+   return true
+  end
+
+  if(state.LastPulseTick and state.LastPulseTick+1 == state.TickCount) then
+    return false
+  end
+
+  local activeWeapon = player:GetActiveWeapon()
+  
+  if activeWeapon then
+
+    if(not activeWeapon:isa("DropStructureAbility")) then
+      KeybindMapper:PulseInputBit("Weapon2", "Weapon2")
+    elseif(activeWeapon.buildMenu) then
+      KeybindMapper:PulseInputBit("Weapon3", "Weapon3")
+    end
+    
+  end
+  
+	return false
+end
+
+KeybindMapper:LinkBindToFunction("ClogBuildMode", function()
+  KeybindMapper:AddTickAction(ClogTick, nil, "ClogBuildMode", "NoReplace")
+end)
+

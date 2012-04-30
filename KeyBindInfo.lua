@@ -89,6 +89,7 @@ KeyBindInfo.ActionKeybinds = {
     	{"Weapon3", "Weapon #3", "Num3"},
     	{"Weapon4", "Weapon #4", "Num4"},
     	{"Weapon5", "Weapon #5", "Num5"},
+    	{"ClogBuildMode", "Enter fast clog place mode", ""},
     }
 }
 
@@ -160,6 +161,7 @@ KeyBindInfo.MarineCommander = {
 		Keybinds = {
 			{"DropAmmo",	"Drop Ammo Pack", "N"},
 			{"DropHealth", "Drop Health Pack", "M"},
+			{"NanoShield", "Nano Shield", ""},
 		}
 }
 
@@ -170,6 +172,7 @@ KeyBindInfo.AlienCommander = {
 
 		Keybinds = {
 			{"DropCyst",	"Drop Cyst", ""},
+			{"Catalyze",	"Nutrient Mist", ""},
 		}
 }
 
@@ -706,6 +709,10 @@ function KeyBindInfo:CheckIsConflicSolved(changedKey)
   end
   
   return true
+end
+
+function KeyBindInfo:SetKeybindWithModifer(key, modiferKey, bindname, isMultiEdit)
+  
 end
 
 function KeyBindInfo:SetKeybind(key, bindname, isMultiEdit)
