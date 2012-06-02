@@ -222,9 +222,9 @@ KeybindMapper:LinkBindToFunction("Catalyze", function()
 	  
 	  //FIXME need todo this some other way
 	  //return to the root menu if we not at it already
-	  if(player.menuTechId ~= kTechId.AssistMenu) then
-	   player.buttonsScript:ButtonPressed(3)
-	  end
+	 
+	  player.buttonsScript:ButtonPressed(3)
+	 
 	  DropTargetedTech(kTechId.NutrientMist)
   end)
 end)
@@ -324,7 +324,7 @@ local function ClogTick(state)
     if(not activeWeapon:isa("DropStructureAbility")) then
       KeybindMapper:PulseInputBit("Weapon2", "Weapon2")
     elseif(activeWeapon.buildMenu) then
-      KeybindMapper:PulseInputBit("Weapon3", "Weapon3")
+      KeybindMapper:PulseInputBit("Weapon2", "Weapon2")
     end
     
   end

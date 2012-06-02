@@ -89,7 +89,7 @@ KeyBindInfo.ActionKeybinds = {
     	{"Weapon3", "Weapon #3", "Num3"},
     	{"Weapon4", "Weapon #4", "Num4"},
     	{"Weapon5", "Weapon #5", "Num5"},
-    	{"ClogBuildMode", "Enter fast clog place mode", ""},
+    	{"ClogBuildMode", "Place Clog", ""},
     }
 }
 
@@ -345,7 +345,9 @@ function KeyBindInfo:LoadAndValidateSavedKeyBinds()
 	
 	if(FirstLoad and not self.Standalone) then
 	  //ugly but should work most of the time
-	  if(Client.GetOptionString("Keybinds/Binds/MoveForward", "") == "") then	  
+	  if(Client.GetOptionString("Keybinds/Binds/MoveForward", "") == "") then
+	    
+	    RawPrint("keybind import %s,%s", Client.GetOptionString("Keybinds/Binds/MoveForward", ""), Client.GetOptionString("Keybinds/Version", ""))
 		  self:ImportKeys()
 		end
 		Client.SetOptionString("Keybinds/Version", "1")
@@ -711,8 +713,16 @@ function KeyBindInfo:CheckIsConflicSolved(changedKey)
   return true
 end
 
-function KeyBindInfo:SetKeybindWithModifer(key, modiferKey, bindname, isMultiEdit)
+local Modifiers = {
+  Shift = true,
+  Ctl = true,
+  Alt = true,
+}
+
+function KeyBindInfo:SetKeybindWithModifer(key, modifierKey, bindname, isSecondry)
+  assert(modifierKey and Modifiers[modifierKey])
   
+  self.Binds[bindname] = {key, modifierKey}
 end
 
 function KeyBindInfo:SetKeybind(key, bindname, isMultiEdit)
