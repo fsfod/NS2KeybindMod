@@ -98,26 +98,6 @@ MovementKeybinds.MoveBackward[4] = MovementKeybinds.MoveForward
 MovementKeybinds.MoveLeft[4] = MovementKeybinds.MoveRight
 MovementKeybinds.MoveRight[4] = MovementKeybinds.MoveLeft
 
-function KeybindMapper:OnLoad()
-	
-	KeyBindInfo:Init()
-	
-	if(not StartupLoader.IsMainVM) then
-	  self:Init()
-	end
-end
-
-function KeybindMapper:OnClientLoadComplete()
-  KeyBindInfo:ReloadKeyBindInfo()
-  self:RefreshInputKeybinds()
-end
-
-function KeybindMapper:OnClientLuaFinished()
-
-  BindingsUI_GetInputValue = function(controlId) 
-    return KeyBindInfo:GetBoundKey(controlId)
-  end
-end
 
 function KeybindMapper:Init()
 

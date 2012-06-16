@@ -1,6 +1,8 @@
 author = "fsfod"
-EngineBuild = 205
-ModTableName = "KeybindMapper"
+EngineBuild = 209
+ModTableName = "KeybindMod"
+MainScript = "KeybindMod.lua"
+ValidVM = "main_client"
 
 ScriptList = {
   "KeyBindInfo.lua",
@@ -17,6 +19,7 @@ Dependencies = {
 SavedVaribles = {
   "Commander_Shift",
   "Commander_Ctl",
+  "Keybinds",
+  "ConsoleCmdBinds",
 }
 
-ValidVM = "main_client"
