@@ -1,5 +1,5 @@
 
-KeybindMod = {
+KeybindMod = KeybindMod or {
   Keybinds = {}
 }
 
