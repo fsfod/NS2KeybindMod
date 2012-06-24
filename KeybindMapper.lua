@@ -172,6 +172,8 @@ function KeybindMapper:ResetInputStateData(caller)
 	self.RunningActions = {}
 	self.EatKeyUp = {}
 	
+	self.ActiveModifierKeys = {}
+	
 	for bindname,action in pairs(self.MovmentVectorActions) do
 	  action.MovementVector.Down = false
 	end
@@ -504,12 +506,34 @@ function KeybindMapper:DeactivateKeybindGroup(groupname)
 	self.OverrideGroupLookup[groupname] = nil
 end
 
+//TODO figure out how to handle upkey event also handle causing an key up event if the modifer key is released with the normal still held down
+function KeybindMapper:FindKeysActionWithModifers(key)
+	
+  if(not KeyBindInfo.ModifierKeys[key]) then
+  
+    for modifer,v in pairs(KeyBindInfo.ModifierKeys) do
+      
+      if(InputKeyHelper:IsModiferDown(modifer)) then
+        local action, overrideGroup = self:FindKeysAction(modifer.."-"..key)
+        
+        if(action) then
+          return action, overrideGroup, modifer
+        end
+      end
+    end
+  end
+  
+  return self:FindKeysAction(key)
+end
+
 -- favor simplicity over merging lots of tables key to bindname's
 function KeybindMapper:FindKeysAction(key)
 	
+
 	local i = #self.OverrideGroups
 	
 	while i ~= 0 do
+	  
 		local bindname = self.OverrideGroups[i].Keys[key]
   	
 		if(bindname and self.KeybindActions[bindname]) then
@@ -526,11 +550,12 @@ function KeybindMapper:FindKeysAction(key)
 		return self.Keybinds[key], false
 	end
 
-	local BindOrCmd, IsBind = KeyBindInfo:GetKeyInfo(key)
-
-	if(IsBind) then
-		return self.KeybindActions[BindOrCmd], false 
-	end
+  local BindOrCmd, IsBind = KeyBindInfo:GetKeyInfo(key)
+  
+  if(IsBind) then
+  	return self.KeybindActions[BindOrCmd], false 
+  end
+	
 	
 	return nil
 end
@@ -566,17 +591,17 @@ function KeybindMapper:OnKeyDown(key)
 		end
 	end
 
-  local action,overrideGroup
+  local action,overrideGroup,modifier
 
 	if(self.IsCommander) then
-	  action = self:CommaderOnKey(key, true)
+	  action,overrideGroup,modifier = self:CommaderOnKey(key, true)
 	  
 	  //CommaderOnKey excuted the bind directly nothing else todo
 	  if(action == true) then
       return true
     end
 	else
-	  action, overrideGroup = self:FindKeysAction(key)
+	  action, overrideGroup,modifier = self:FindKeysActionWithModifers(key)
 	end
   
 	if(not action) then
@@ -584,9 +609,10 @@ function KeybindMapper:OnKeyDown(key)
 	end
   
 	if(key == "MouseWheelUp" or key == "MouseWheelDown") then
+	  //we don't need to worry about a modifer key being released with mouseWheel events since mousewheel direction up event is triggered internaly
     self:HandleMouseWheel(key, action)
   else
-    self:ActivateAction(action, key, true)
+    self:ActivateAction(action, key, true, modifier)
 	end
 
 	return true
@@ -685,7 +711,7 @@ local CommaderOverrideGroups = {
 }
 
 function KeybindMapper:CommaderOnKey(key, down)
-	local action, overrideGroup = self:FindKeysAction(key)
+	local action, overrideGroup, modifier = self:FindKeysActionWithModifers(key)
 
 	local commanderUseable = action and ((overrideGroup and CommaderOverrideGroups[overrideGroup]) or 
 													 action.UserConsoleCmdBind or KeyBindInfo.CommanderUsableGlobalBinds[action.BindName])
@@ -719,9 +745,8 @@ function KeybindMapper:CommaderOnKey(key, down)
 	 	end
 	end
 
-	
-	if(action) then
-	 	return action
+	if(commanderUseable and action) then
+	  return action,overrideGroup, modifier
 	end
 	
 	return false
@@ -732,6 +757,24 @@ function KeybindMapper:OnKeyUp(key)
 	if(MouseStateTracker:IsStateActive("chat") or self.InGameMenuOpen or (MouseStateTracker:IsStateActive("buymenu") and MenuPassThrough[key])) then
 		return false
 	end
+
+
+  if(self.ActiveModifierKeys[key]) then
+    
+    for singleKey, activeAction in pairs(self.ActiveModifierKeys[key]) do 
+      self:ActivateAction(activeAction, singleKey, false)
+      self.ActiveModifierKeys[key][singleKey] = nil
+    end
+  else
+    
+    //trigger the up event for combination of this key with modifiers that has an active action    
+    for modifier,activeActions in pairs(self.ActiveModifierKeys) do   
+      if(activeActions[key]) then
+        self:ActivateAction(activeActions[key], key, false)
+        activeActions[key] = nil
+      end
+    end
+  end
 
 	local action, overrideGroup = self:FindKeysAction(key)
 
@@ -749,13 +792,23 @@ function KeybindMapper:OnKeyUp(key)
 	return false
 end
 
-function KeybindMapper:ActivateAction(action, key, down)
+function KeybindMapper:ActivateAction(action, key, down, modifier)
 	
 	local func = action.OnDown
 	local result = false
 
 	if(not down) then
 		func = action.OnUp
+	else
+	  
+	  if(modifier) then
+	    
+	    if(not self.ActiveModifierKeys[modifier]) then
+	      self.ActiveModifierKeys[modifier] = {}
+	    end
+	    
+	    self.ActiveModifierKeys[modifier][key] = action
+	  end
 	end
 	
 	if(action.KeyDownArgIndex) then
