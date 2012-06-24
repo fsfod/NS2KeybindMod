@@ -850,7 +850,7 @@ function KeyBindInfo:SetKeybindWithModifier(key, modifierKey, bindname, keyIndex
   
   local compiledKey = modifierKey.."-"..key
   
-  self:SetKeybind(compiledKey, bindname, keyIndex, isMultiEdit)
+  return self:SetKeybind(compiledKey, bindname, keyIndex, isMultiEdit)
 end
 
 function KeyBindInfo:SetKeybind(key, bindname, keyIndex, isMultiEdit)
@@ -890,6 +890,7 @@ function KeyBindInfo:SetKeybind(key, bindname, keyIndex, isMultiEdit)
 		  //end
 		  
 		  if(IsBind) then
+		    clearedBind = clearedBindOrCmd
 		  	self.Changes[clearedBindOrCmd] = true
 		  else
 		  	CmdChanges[key] = true
@@ -907,6 +908,8 @@ function KeyBindInfo:SetKeybind(key, bindname, keyIndex, isMultiEdit)
 			
 			self:ClearBind(groupbind, bindKeyIndex, true)
 		end
+		
+		clearedBind = groupbind
 	end
 
   self:SaveKeybind(bindname, key, keyIndex, IsOverride)
@@ -914,6 +917,8 @@ function KeyBindInfo:SetKeybind(key, bindname, keyIndex, isMultiEdit)
 	if(not isMultiEdit) then
 		self:OnBindingsChanged()
 	end
+	
+	return clearedBind
 end
 
 function KeyBindInfo:SaveChanges()
