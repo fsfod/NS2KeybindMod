@@ -986,10 +986,20 @@ function KeyBindInfo:GetGroupBoundKeys(groupname)
 	local keybinds = {}
 
 		for _,bindinfo in ipairs(self.KeybindGroupLookup[groupname].Keybinds) do
-			local key = self:GetBoundKey(bindinfo[1])
+			local keyEntry = self.KeybindNameToKey[bindinfo[1]]
 
-			if(key) then
-				keybinds[key] = bindinfo[1]
+			if(keyEntry) then
+			  if(type(keyEntry) == "string") then
+			    keybinds[keyEntry] = bindinfo[1]
+			  else
+			    //more than one key is set to this bind 
+			    for i,key in pairs(keyEntry) do
+			      if(i ~= "KeyCount") then
+              keybinds[key] = bindinfo[1]
+            end
+          end
+			  end
+				
 			end
 		end
 
