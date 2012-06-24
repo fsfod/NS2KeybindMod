@@ -67,8 +67,8 @@ KeyBindInfo.MovementKeybinds = {
     	{"MoveLeft", "Move Left", "A"},
     	{"MoveRight", "Move Right", "D"},
     	{"Jump", "Jump", "Space"},
-    	{"MovementModifier", "Movement special", "LeftShift"},
-    	{"Crouch", "Crouch", "LeftControl"},
+    	{"MovementModifier", "Movement special", "Shift"},
+    	{"Crouch", "Crouch", "Control"},
     }
 }
 
@@ -87,7 +87,7 @@ KeyBindInfo.ActionKeybinds = {
 			{"ToggleSayings1","Sayings #1", "Z"},
 			{"ToggleSayings2","Sayings #2", "X"},
 			{"ToggleVoteMenu", "Vote menu" , "V"},
-    	{"VoiceChat", "Use microphone", "LeftAlt"},
+    	{"VoiceChat", "Use microphone", "Alt"},
     	{"TextChat", "Public chat", "Y"},
     	{"TeamChat", "Team chat", "U"},
     	{"Scoreboard",  "Show Scoreboard", "Tab"},
@@ -439,13 +439,9 @@ function KeyBindInfo:LoadAndValidateSavedKeyBinds()
     Client.SetOptionString("Keybinds/Version", "2")
     version = "2" 
   end
-  
+
   if(version == "") then
-    //ugly but should work most of the time
-    if(Client.GetOptionString("Keybinds/Binds/MoveForward", "") == "") then
-  	  self:ImportKeys()
-  	end
-  	
+  	self:ImportKeys()
   	//clear the keybind list
   	//Client.SetOptionString("Keybinds", "")
   	
