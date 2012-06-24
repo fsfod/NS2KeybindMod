@@ -254,8 +254,6 @@ KeyBindInfo.CommanderUsableGlobalBinds = {
 	ShowMap = true,
 }
 
-
-
 function KeyBindInfo:Init(Standalone)
   
 	if(not self.Loaded) then
@@ -367,20 +365,6 @@ function KeyBindInfo:FillInFreeDefaults()
 	end
 end
 
-function KeyBindInfo:ConvertToNewConfig()
-  
-  for bindName,key in pairs(self.KeybindNameToKey) do
-    self.SavedKeybinds[bindName] = key
-  end
-
-end
-
-function KeyBindInfo:NewConfigTest()
-  
-
-  
-end
-
 function KeyBindInfo:AddDefaultKeybindGroups()
   
   self:AddKeybindGroup(self.MovementKeybinds)
@@ -446,14 +430,17 @@ end
 
 function KeyBindInfo:LoadAndValidateSavedKeyBinds()
   
-  
   local version = Client.GetOptionString("Keybinds/Version", "")
+  
+  //protect against steam syncing reseting the games config file
+  if(version ~= "2" and next(self.KeybindNameToKey)) then
+    Client.SetOptionString("Keybinds/Version", "2")
+    version = "2" 
+  end
   
   if(version == "") then
     //ugly but should work most of the time
     if(Client.GetOptionString("Keybinds/Binds/MoveForward", "") == "") then
-      
-      RawPrint("keybind import %s,%s", Client.GetOptionString("Keybinds/Binds/MoveForward", ""), Client.GetOptionString("Keybinds/Version", ""))
   	  self:ImportKeys()
   	end
   	
@@ -462,10 +449,14 @@ function KeyBindInfo:LoadAndValidateSavedKeyBinds()
   	
   	Client.SetOptionString("Keybinds/Version", "2")
   	self:SaveChanges()
+  	
   elseif(version == "1") then
+    
+    RawPrint("Keybinds: Converting keybinds to new storage system")
+    
     self:Load_OldConfig()
-    Client.SetOptionString("Keybinds/Version", "2")
     self:SaveChanges()
+    Client.SetOptionString("Keybinds/Version", "2")
   else
     self:Load_NewConfig(self.KeybindNameToKey)
   end
