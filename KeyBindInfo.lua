@@ -51,6 +51,14 @@ KeyBindInfo = {
 
 end
 
+KeyBindInfo.ModifierKeys = {
+  Shift = true,
+  Control = true,
+  Alt = true,
+}
+
+
+
 KeyBindInfo.MovementKeybinds = {
 		Name = "Movement",
 		Keybinds = {
@@ -836,16 +844,13 @@ function KeyBindInfo:CheckIsConflicSolved(changedKey)
   return true
 end
 
-local Modifiers = {
-  Shift = true,
-  Ctl = true,
-  Alt = true,
-}
 
-function KeyBindInfo:SetKeybindWithModifer(key, modifierKey, bindname, isSecondry)
-  assert(modifierKey and Modifiers[modifierKey])
+function KeyBindInfo:SetKeybindWithModifier(key, modifierKey, bindname, keyIndex, isMultiEdit)
+  assert(modifierKey and self.ModifierKeys[modifierKey], "")
   
-  self.Binds[bindname] = {key, modifierKey}
+  local compiledKey = modifierKey.."-"..key
+  
+  self:SetKeybind(compiledKey, bindname, keyIndex, isMultiEdit)
 end
 
 function KeyBindInfo:SetKeybind(key, bindname, keyIndex, isMultiEdit)
