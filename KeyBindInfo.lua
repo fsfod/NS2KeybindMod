@@ -171,6 +171,8 @@ KeyBindInfo.MarineCommander = {
 			{"DropAmmo",	"Drop Ammo Pack", "N"},
 			{"DropHealth", "Drop Health Pack", "M"},
 			{"NanoShield", "Nano Shield", ""},
+			{"NanoConstruct", "Nano Construct", ""},
+			{"Scan", "Scan", ""},
 		}
 }
 

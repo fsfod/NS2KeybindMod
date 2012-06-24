@@ -116,6 +116,8 @@ function SelectCommandStructure(selectCompleteCallback)
 	end
 end
  
+
+ 
 local function DropTargetedTech(techId)
 	
 	local player = Client.GetLocalPlayer()
@@ -124,23 +126,14 @@ local function DropTargetedTech(techId)
 		return
 	end
 
-	if(techId == kTechId.AmmoPack or techId == kTechId.MedPack or techId == kTechId.NanoShield) then
-	  //stupid Commander:ProcessTechTreeActionForEntity does a check for active buttons serverside
-	  player.buttonsScript:ButtonPressed(3)
-	  
-	  //player:SetCurrentTech(16)
-	  /*
-		local selectProgress = CheckSelectedCommandStructure()
-		
-		if(selectProgress == 0)then
-			Shared.Message("CC needs tobe selected to drop health/ammo")
-		end
-		
-		--we selected the cc this key press we have to wait for the server to register our selection before we can send the action
-		if(selectProgress < 2 ) then
-			return
-		end
-		*/
+	if(techId == kTechId.AmmoPack or techId == kTechId.MedPack or techId == kTechId.NanoShield or techId == kTechId.NanoConstruct or techId == kTechId.Scan) then
+    local cost = GetCostForTech(techId)
+
+    if cost > player.teamResources  then
+      Shared.PlayPrivateSound(player, Player.kNotEnoughResourcesSound, player, 1.0, Vector(0, 0, 0))
+      //player:AddAlert(kTechId.MarineAlertNotEnoughResources, message.worldX, message.worldZ, message.entityId, message.entityTechId)
+     return
+    end
 	end
 
 	local x,y = Client.GetCursorPos()
@@ -209,8 +202,10 @@ end
 
 KeybindMapper:LinkBindToFunction("DropAmmo", function() DropTargetedTech(kTechId.AmmoPack) end) 
 KeybindMapper:LinkBindToFunction("DropHealth", function() DropTargetedTech(kTechId.MedPack) end)
-
 KeybindMapper:LinkBindToFunction("NanoShield", function() DropTargetedTech(kTechId.NanoShield) end)
+KeybindMapper:LinkBindToFunction("Scan", function() DropTargetedTech(kTechId.Scan) end)
+KeybindMapper:LinkBindToFunction("NanoConstruct", function() DropTargetedTech(kTechId.NanoConstruct) end)
+
 
 KeybindMapper:LinkBindToFunction("Catalyze", function()
   SelectCommandStructure(function()
