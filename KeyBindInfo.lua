@@ -435,17 +435,18 @@ function KeyBindInfo:LoadAndValidateSavedKeyBinds()
   local version = Client.GetOptionString("Keybinds/Version", "")
   
   //protect against steam syncing reseting the games config file
-  if(version ~= "2" and next(self.KeybindNameToKey)) then
-    Client.SetOptionString("Keybinds/Version", "2")
-    version = "2" 
+  if(version ~= "2" and version ~= "3" and next(self.KeybindNameToKey)) then
+    Client.SetOptionString("Keybinds/Version", "3")
+    version = "3" 
   end
 
   if(version == "") then
   	self:ImportKeys()
+  	self:ConvertModifiers()
   	//clear the keybind list
   	//Client.SetOptionString("Keybinds", "")
   	
-  	Client.SetOptionString("Keybinds/Version", "2")
+  	Client.SetOptionString("Keybinds/Version", "3")
   	self:SaveChanges()
   	
   elseif(version == "1") then
@@ -453,10 +454,18 @@ function KeyBindInfo:LoadAndValidateSavedKeyBinds()
     RawPrint("Keybinds: Converting keybinds to new storage system")
     
     self:Load_OldConfig()
+    self:ConvertModifiers()
     self:SaveChanges()
-    Client.SetOptionString("Keybinds/Version", "2")
+    Client.SetOptionString("Keybinds/Version", "3")
+
   else
     self:Load_NewConfig(self.KeybindNameToKey)
+
+    if(version == "2") then
+      self:ConvertModifiers()
+      self:SaveChanges()
+      Client.SetOptionString("Keybinds/Version", "3")
+    end
   end
 
   if(version == "" or version == "1") then
@@ -544,6 +553,52 @@ function KeyBindInfo:ImportKeys()
 	end
 	
 	Shared.Message("Sucessfuly imported "..importCount.." keybinds.")
+end
+
+local ModifierConversions = {
+  LeftShift = "Shift",
+  LeftControl = "Control",
+  LeftAlt = "Alt",
+  RightShift = "Shift",
+  RightControl = "Control",
+  RightAlt = "Alt",
+}
+
+function KeyBindInfo:ConvertModifiers()
+  
+  local modiferSet = {}
+  
+  for bind,key in pairs(self.KeybindNameToKey) do
+    
+    local newKey = ModifierConversions[key]
+    
+    if(newKey) then
+      
+      local group = self.KeybindToGroup[bind]
+      
+      if(not group.OverrideGroup) then
+        local existingBind, isBind, index = self:GetKeyInfo(newKey)
+        
+        if(not existingBind or isBind) then
+          self.BoundKeys[key] = nil
+
+          if(not existingBind) then
+            self.KeybindNameToKey[bind] =  newKey
+            self.BoundKeys[newKey] = bind
+          else
+            self.KeybindNameToKey[bind] = nil
+          end
+        end
+        
+      else
+
+        if(not self:GetBoundKeyGroup(newKey, group.Name)) then
+          self.KeybindNameToKey[bind] = newKey
+        end
+      end
+    end
+  end
+  
 end
 
 function KeyBindInfo:SaveKeybind(bindName, key, keyIndex, isOverrideKey)
