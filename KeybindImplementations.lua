@@ -268,7 +268,7 @@ Event.Hook("UpdateClient", function()
     
     local slot = currentWeaponEntity:GetHUDSlot()
     
-    if(slot ~= currentWeapon) then
+    if(slot ~= currentWeapon and slot ~= 0) then
       //RawPrint("Weapon slot changed from %i to %i", currentWeapon, slot)
       
       currentWeapon = slot
@@ -289,7 +289,45 @@ function KeybindMapper:WeaponChanged(weaponSlot, name)
   //player.showSayings
 end
 
-KeybindMapper:LinkBindToFunction("LastWeapon", function()
+KeybindMapper:LinkBindToFunction("LastWeapon", function()  
+  
+  local player = Client.GetLocalPlayer()
+  
+  if(player and player.GetHUDOrderedWeaponList) then
+    
+    local stillHaveSlot = false
+    local prevSlot, lastSlot
+    local currentSlot = player:GetActiveWeapon() and player:GetActiveWeapon():GetHUDSlot()
+    
+    
+      for index, item in ipairs(player:GetHUDOrderedWeaponList()) do
+          local slot = item:GetHUDSlot()
+          
+          if(slot ~= 0) then
+            prevSlot = lastSlot
+            lastSlot = slot
+          
+            if(slot == PrevWeaponSlot) then
+              stillHaveSlot = true
+              break
+            end
+          end
+      end
+      
+      if(not stillHaveSlot) then
+        if(lastSlot == nil) then
+          RawPrint("LastWeapon: no valid weapon to select")
+         return
+        end
+        
+        if(lastSlot == currentSlot and prevSlot) then
+          lastSlot = prevSlot
+        end
+        
+        PrevWeaponSlot = lastSlot
+      end
+  end
+  
   KeybindMapper:PulseInputBit(WeaponSlotToInputBit[PrevWeaponSlot], "LastWeapon")
 end)
 

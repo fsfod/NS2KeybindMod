@@ -27,7 +27,7 @@ function KeybindMapper:SetupHooks()
 	self:RawHookClassFunction("MarineSpectator", "OverrideInput", "OverrideInput_Hook", PassHookHandle)
 	self:RawHookClassFunction("Spectator", "OverrideInput", "OverrideInput_Hook", PassHookHandle)
 	self.GorgeHook = self:RawHookClassFunction("Gorge", "OverrideInput", "OverrideInput_Hook", PassHookHandle)
-	self:RawHookClassFunction("Embryo", "OverrideInput", "OverrideInput_Hook", PassHookHandle)
+
 	self:ReplaceClassFunction("Embryo", "OverrideInput", "Embryo_OverrideInput")
 
 	
@@ -129,6 +129,9 @@ ValidEmbryoBits = bit.bnot(ValidEmbryoBits)
 // Allow players to rotate view, chat, scoreboard, etc. but not move
 function KeybindMapper:Embryo_OverrideInput(entitySelf, input)
 
+  self:InputTick()
+	self:FillInMove(input, entitySelf:isa("Commander"))
+
     // Completely override movement and commands
    input.move.x = 0
    input.move.y = 0
@@ -155,11 +158,27 @@ function KeybindMapper:Pre_SendKeyEvent(HookHandle, key, down, IsRepeat)
 	if(key ~= InputKey.MouseX and key ~= InputKey.MouseY) then 
 		local keystring = InputKeyHelper:ConvertToKeyName(key, down)
 
-		if(down or key == InputKey.MouseZ) then
- 			handled = self:OnKeyDown(keystring)
-		else
-			handled = self:OnKeyUp(keystring)
-		end
+    if(self.IsCommander and self.CommanderPassthroughKeys[key]) then
+      
+      //for keys we pass through to the guisystem like shift for the commander map ping
+      if(self.CommanderPassthroughKeys[key] ~= true) then
+        return
+      end
+      
+      local localPlayer = Client.GetLocalPlayer()
+
+      localPlayer:SendKeyEvent(key, down)
+      handled = true
+      
+    else
+      
+      if(down or key == InputKey.MouseZ) then
+ 			  handled = self:OnKeyDown(keystring)
+		  else
+			  handled = self:OnKeyUp(keystring)
+		  end
+      
+    end
 	end
 
 	if(handled) then

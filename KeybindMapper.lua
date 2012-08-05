@@ -52,6 +52,21 @@ else
 	IsReload = true
 end
 
+KeybindMapper.CommanderPassthroughKeys = {
+  [InputKey.Escape] = true,
+  [InputKey.LeftControl] = true,
+  [InputKey.RightControl] = true,
+  [InputKey.LeftShift] = 1,
+  [InputKey.RightShift] = 1,
+  [InputKey.Num1] = true,
+  [InputKey.Num2] = true,
+  [InputKey.Num3] = true,
+  [InputKey.Num4] = true,
+  [InputKey.Num5] = true,
+  [InputKey.Num6] = true,
+}      
+
+
 --Script.Load("lua/BindingsShared.lua")
 
 local HotkeyPassThrough = {
