@@ -53,18 +53,19 @@ else
 end
 
 KeybindMapper.CommanderPassthroughKeys = {
-  [InputKey.Escape] = true,
-  [InputKey.LeftControl] = true,
-  [InputKey.RightControl] = true,
-  [InputKey.LeftShift] = 1,
-  [InputKey.RightShift] = 1,
-  [InputKey.Num1] = true,
-  [InputKey.Num2] = true,
-  [InputKey.Num3] = true,
-  [InputKey.Num4] = true,
-  [InputKey.Num5] = true,
-  [InputKey.Num6] = true,
-}      
+  Escape = true,
+  LeftControl = true,
+  Control = true,
+  LeftShift = 1,
+  Shift = 1,
+  Num1 = true,
+  Num2 = true,
+  Num3 = true,
+  Num4 = true,
+  Num5 = true,
+  Num6 = true,
+  Space = true,
+}
 
 
 --Script.Load("lua/BindingsShared.lua")
@@ -920,6 +921,7 @@ end
 local KeyPassThrough = {
 	MouseButton0 = true,
 	MouseButton1 = true,
+	MouseButton2 = true,
 }
  
 function KeybindMapper:CanKeyFallThrough(key)
@@ -929,6 +931,18 @@ function KeybindMapper:CanKeyFallThrough(key)
 
 	if(KeyPassThrough[key]) then
 		return true
+	end
+	
+	if(KeybindMapper.CommanderPassthroughKeys[key] == 1) then
+	  return true
+	end
+
+	if(key == "Back") then
+	  local player = Client.GetLocalPlayer()
+	 
+	  if(player and player:isa("Spectator")) then
+	    return true
+	  end
 	end
 	
 	local BindOrCmd, IsBind = KeyBindInfo:GetKeyInfo(key)

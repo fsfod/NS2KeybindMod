@@ -151,17 +151,28 @@ function KeybindMapper:Pre_SendKeyEvent(HookHandle, key, down, IsRepeat)
 		return
 	end
 
-	if((self.IsCommander or Client.GetMouseVisible() or (ScoreboardUI_GetVisible and ScoreboardUI_GetVisible())) and (key == InputKey.MouseButton0 or key == InputKey.MouseButton1)) then
-		return
-	end
+  if(key == InputKey.MouseButton0 or key == InputKey.MouseButton1 or key == InputKey.MouseButton2) then
+    
+    local mouseVisible = Client.GetMouseVisible()
+    
+    //always passthough all mouselclicks when a commander or the mouse is visible
+    if(mouseVisible or self.IsCommander) then
+      return
+    end
+    
+    //pass clicks when the scoreboard is open to the guisystem
+    if(not mouseVisible and ScoreboardUI_GetVisible and ScoreboardUI_GetVisible()) then
+      return
+    end    
+  end
 
 	if(key ~= InputKey.MouseX and key ~= InputKey.MouseY) then 
 		local keystring = InputKeyHelper:ConvertToKeyName(key, down)
 
-    if(self.IsCommander and self.CommanderPassthroughKeys[key]) then
+    if(self.IsCommander and self.CommanderPassthroughKeys[keystring]) then
       
       //for keys we pass through to the guisystem like shift for the commander map ping
-      if(self.CommanderPassthroughKeys[key] ~= true) then
+      if(self.CommanderPassthroughKeys[keystring] ~= true) then
         return
       end
       
