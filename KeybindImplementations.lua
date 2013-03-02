@@ -28,9 +28,9 @@ Event.Hook("UpdateClient", function()
 	else
 		OpenChat = false
 	end
-	
+
 	KeybindMapper:ChatOpened()
-	
+
 	ChatUI_EnterChatMessage(TeamChat)
 	TeamChat = false
 end)
@@ -61,19 +61,19 @@ local WeaponSlotToInputBit = {
 	"Weapon5",
 }
 
-local function SelectTick(state) 
+local function SelectTick(state)
 
   if(state.TickCount == 2) then
 	  KeybindMapper:SetInputBit(state.InputBit, false)
-   
+
    return state.Callback == nil
 	end
-	
+
 	if(state.TickCount == 3) then
 	  state.Callback()
 	 return true
 	end
-	
+
 	return false
 end
 
@@ -86,7 +86,7 @@ function SelectCommandStructure(selectCompleteCallback)
 	local player = Client.GetLocalPlayer()
 	local selectedEnts = player:GetSelection()
 
-  local firstEntity = #selectedEnts == 1 and Shared.GetEntity(selectedEnts[1]) 
+  local firstEntity = #selectedEnts == 1 and Shared.GetEntity(selectedEnts[1])
 
 	if(not firstEntity or not firstEntity:isa("CommandStructure") or not firstEntity:GetIsBuilt()) then
 
@@ -94,19 +94,19 @@ function SelectCommandStructure(selectCompleteCallback)
 		 local group = player.hotkeyGroups[i]
 
   		if(#group == 1) then
-  		  
+
 				local entity = Shared.GetEntity(group[1])
-				if(entity and entity:isa("CommandStructure")) then	
+				if(entity and entity:isa("CommandStructure")) then
 					local inputbit = WeaponSlotToInputBit[i]
 
 					--Workaround for Commander:SelectHotkeyGroup not syncing changes to the server
 					KeybindMapper:SetInputBit(inputbit, true)
-					
+
 					KeybindMapper:AddTickAction(SelectTick, {InputBit = inputbit, Callback = selectCompleteCallback}, "SelectHotkeyGroup", "NoReplace")
 
 					return
 				end
-				
+
   		end
   	end
 
@@ -115,13 +115,13 @@ function SelectCommandStructure(selectCompleteCallback)
 	  selectCompleteCallback()
 	end
 end
- 
 
- 
+
+
 local function DropTargetedTech(techId)
-	
+
 	local player = Client.GetLocalPlayer()
-	
+
 	if(not player:isa("Commander")) then
 		return
 	end
@@ -139,11 +139,11 @@ local function DropTargetedTech(techId)
 	local x,y = Client.GetCursorPos()
 	x = x*Client.GetScreenWidth()
 	y = y*Client.GetScreenHeight()
-	
+
 	local normalizedPickRay = CreatePickRay(player, x, y)
-   
+
    //player:GetCommanderPickTarget()
-   
+
    player:SendTargetedAction(techId, normalizedPickRay, 0)
 end
 
@@ -166,7 +166,7 @@ local SayingsMenu = {
 	  "Saying_Hostiles",
 	  "Saying_Taunt",
 	},
-  
+
   {
     MenuIndex = 1,
 	  "Saying_Needhealing",
@@ -180,11 +180,11 @@ local LastSayTrigger = 1
 local function TriggerSaying(sayingIndex, sayingsMenu)
 
   if(Client.GetTime()-LastSayTrigger < 1) then
-    
+
   end
-  
-  LastSayTrigger = Client.GetTime() 
-  
+
+  LastSayTrigger = Client.GetTime()
+
   local message = BuildExecuteSayingMessage(sayingIndex, sayingsMenu)
 
   Client.SendNetworkMessage("ExecuteSaying", message, true)
@@ -200,7 +200,7 @@ for _,list in ipairs(SayingsMenu) do
   end
 end
 
-KeybindMapper:LinkBindToFunction("DropAmmo", function() DropTargetedTech(kTechId.AmmoPack) end) 
+KeybindMapper:LinkBindToFunction("DropAmmo", function() DropTargetedTech(kTechId.AmmoPack) end)
 KeybindMapper:LinkBindToFunction("DropHealth", function() DropTargetedTech(kTechId.MedPack) end)
 KeybindMapper:LinkBindToFunction("NanoShield", function() DropTargetedTech(kTechId.NanoShield) end)
 KeybindMapper:LinkBindToFunction("Scan", function() DropTargetedTech(kTechId.Scan) end)
@@ -210,16 +210,16 @@ KeybindMapper:LinkBindToFunction("NanoConstruct", function() DropTargetedTech(kT
 KeybindMapper:LinkBindToFunction("Catalyze", function()
   SelectCommandStructure(function()
     local player = Client.GetLocalPlayer()
-	
+
 	  if(not player:isa("Commander")) then
 		  return
 	  end
-	  
+
 	  //FIXME need todo this some other way
 	  //return to the root menu if we not at it already
-	 
+
 	  player.buttonsScript:ButtonPressed(3)
-	 
+
 	  DropTargetedTech(kTechId.NutrientMist)
   end)
 end)
@@ -228,17 +228,17 @@ end)
 KeybindMapper:LinkBindToFunction("DropCyst", function()
   SelectCommandStructure(function()
     local player = Client.GetLocalPlayer()
-	
+
 	  if(not player:isa("Commander")) then
 		  return
 	  end
-	  
+
 	  //FIXME need todo this some other way
 	  //return to the root menu if we not at it already
 	  //if(player.menuTechId ~= kTechId.RootMenu) then
 	  // player.buttonsScript:ButtonPressed(1)
 	  //end
-	  
+
 	  player.buttonsScript:ButtonPressed(1)
 	  player.buttonsScript:ButtonPressed(5)
   end)
@@ -251,9 +251,9 @@ KeybindMapper.CurrentWeaponSlot = 1
 local currentWeapon = 1
 
 Event.Hook("UpdateClient", function()
-  
+
   local player = Client.GetLocalPlayer()
-  
+
   if(not player or not player.GetActiveWeapon) then
     return
   end
@@ -263,20 +263,20 @@ Event.Hook("UpdateClient", function()
   //end
 
   local currentWeaponEntity = player:GetActiveWeapon()
-  
+
   if(currentWeaponEntity) then
-    
+
     local slot = currentWeaponEntity:GetHUDSlot()
-    
+
     if(slot ~= currentWeapon and slot ~= 0) then
       //RawPrint("Weapon slot changed from %i to %i", currentWeapon, slot)
-      
+
       currentWeapon = slot
-      
+
       KeybindMapper:WeaponChanged(slot)
     end
   end
-  
+
 end)
 
 local PrevWeaponSlot = 1
@@ -289,45 +289,45 @@ function KeybindMapper:WeaponChanged(weaponSlot, name)
   //player.showSayings
 end
 
-KeybindMapper:LinkBindToFunction("LastWeapon", function()  
-  
+KeybindMapper:LinkBindToFunction("LastWeapon", function()
+
   local player = Client.GetLocalPlayer()
-  
+
   if(player and player.GetHUDOrderedWeaponList) then
-    
+
     local stillHaveSlot = false
     local prevSlot, lastSlot
     local currentSlot = player:GetActiveWeapon() and player:GetActiveWeapon():GetHUDSlot()
-    
-    
+
+
       for index, item in ipairs(player:GetHUDOrderedWeaponList()) do
           local slot = item:GetHUDSlot()
-          
+
           if(slot ~= 0) then
             prevSlot = lastSlot
             lastSlot = slot
-          
+
             if(slot == PrevWeaponSlot) then
               stillHaveSlot = true
               break
             end
           end
       end
-      
+
       if(not stillHaveSlot) then
         if(lastSlot == nil) then
           RawPrint("LastWeapon: no valid weapon to select")
          return
         end
-        
+
         if(lastSlot == currentSlot and prevSlot) then
           lastSlot = prevSlot
         end
-        
+
         PrevWeaponSlot = lastSlot
       end
   end
-  
+
   KeybindMapper:PulseInputBit(WeaponSlotToInputBit[PrevWeaponSlot], "LastWeapon")
 end)
 
@@ -335,37 +335,48 @@ local bor = bit.bor
 local cancelBits = bor(bor(Move.Weapon1, Move.SecondaryAttack), Move.ESC)
 
 
-local function ClogTick(state) 
 
-  local player = Client.GetLocalPlayer()
+KeybindMapper.BuyTechNames = {
+  "Shotgun",
+  "Welder",
+  "LayMines",
+  "GrenadeLauncher",
+  "Flamethrower",
+  "Jetpack",
+  "Exosuit",
+  "DualMinigunExosuit",
+  "Axe",
+  "Pistol",
+  "Rifle",
 
-  local moveBits = bit.bor(KeybindMapper.MoveInputBitFlags, KeybindMapper.PulseMoveBits or 0)
+  "Skulk",
+  "Gorge",
+  "Lerk",
+  "Fade",
+  "Onos",
 
-  if(not player or not player:isa("Gorge") or not DropStructureAbility.kSupportedStructures[3]:IsAllowed(Client.GetLocalPlayer()) or
-     bit.band(moveBits, cancelBits) ~= 0 )  then
-   return true
-  end
+  "Carapace",
+  "Regeneration",
+  "Silence",
+  "Camouflage",
+  "Feint",
+  "Celerity",
+  "Adrenaline",
+  "HyperMutation",
+}
 
-  if(state.LastPulseTick and state.LastPulseTick+1 == state.TickCount) then
-    return false
-  end
+for i,itemName in ipairs(KeybindMapper.BuyTechNames) do
 
-  local activeWeapon = player:GetActiveWeapon()
-  
-  if activeWeapon then
-
-    if(not activeWeapon:isa("DropStructureAbility")) then
-      KeybindMapper:PulseInputBit("Weapon2", "Weapon2")
-    elseif(activeWeapon.buildMenu) then
-      KeybindMapper:PulseInputBit("Weapon2", "Weapon2")
+  KeybindMapper:LinkBindToFunction("Buy_"..itemName, function()
+    
+    local player = Client.GetLocalPlayer()
+    
+    if(player and player:isa("Embryo")) then
+      return
     end
     
-  end
-  
-	return false
+    Shared.ConsoleCommand("buy " .. tostring(kTechId[itemName]))
+  end)
 end
 
-KeybindMapper:LinkBindToFunction("ClogBuildMode", function()
-  KeybindMapper:AddTickAction(ClogTick, nil, "ClogBuildMode", "NoReplace")
-end)
 

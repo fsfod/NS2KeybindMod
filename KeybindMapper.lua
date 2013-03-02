@@ -169,6 +169,10 @@ function KeybindMapper:ShutDown()
 	self.ConsoleCmdKeys = {}
 	self.Keybinds = {}
 	
+	self.TeamOverrides = nil
+  self.CommanderOverrides = nil
+	self.CommanderTeamOverrides = nil
+	
 	PlayerEvents.UnregisterAllCallbacks(self)
 end
 
@@ -449,28 +453,34 @@ function KeybindMapper:OnCommander(CommanderSelf)
 	end
 	
 	self.IsCommander = true
-	self:ActivateKeybindGroup("CommanderShared")
 	
-	if(CommanderSelf:isa("MarineCommander")) then
-		self:ActivateKeybindGroup("MarineCommander")
-	else
-		self:ActivateKeybindGroup("AlienCommander")
-	end
+	self.CommanderOverrides = self:ActivateOverrideGroup("Commander")
+	self.CommanderTeamOverrides = self:ActivateOverrideGroup((CommanderSelf:isa("MarineCommander") and "MarineCommander") or "AlienCommander")
 	
 	self:ResetInputStateData("OnCommander")
 end
 
 function KeybindMapper:OnPlayerTeamChange(newTeam, oldTeam)
 
-  self:DeactivateKeybindGroup("MarineSayings")
-  self:DeactivateKeybindGroup("AlienSayings")
-  
+  if(self.TeamOverrides) then
+    for i,name in ipairs(self.TeamOverrides) do
+      self:DeactivateKeybindGroup(name)
+    end
+    
+    self.TeamOverrides = nil
+  end
+
+  local teamName
+
   if(newTeam == kMarineTeamType) then
-    self:ActivateKeybindGroup("MarineSayings")
+    teamName = "Marine"
   elseif(newTeam == kAlienTeamType) then
-    self:ActivateKeybindGroup("AlienSayings")
+    teamName = "Alien"
+  else
+    return
   end
   
+  self.TeamOverrides = self:ActivateOverrideGroup(teamName)
 end
 
 function KeybindMapper:OnUnCommander()
@@ -480,11 +490,40 @@ function KeybindMapper:OnUnCommander()
 	end
 
 	self.IsCommander = false
-	self:DeactivateKeybindGroup("CommanderShared")
-	self:DeactivateKeybindGroup("MarineCommander")
-	self:DeactivateKeybindGroup("AlienCommander")
+	
+	self:DeactivateOverrideGroup(self.CommanderTeamOverrides)
+	self.CommanderTeamOverrides = nil
+	
+  self:DeactivateOverrideGroup(self.CommanderOverrides)
+  self.CommanderOverrides = nil
 
 	self:ResetInputStateData("OnUnCommander")
+end
+
+function KeybindMapper:ActivateOverrideGroup(groupName)
+  
+  local groupNames = KeyBindInfo:GetKeybindGroupsForOverrideGroup(groupName)
+
+  if(#groupNames == 0) then
+    return nil
+  end
+  
+  for i,name in ipairs(groupNames) do
+    self:ActivateKeybindGroup(name)
+  end
+  
+  return groupNames
+end
+
+function KeybindMapper:DeactivateOverrideGroup(groupNames)
+
+  if(not groupNames) then
+    return
+  end
+  
+  for i,name in ipairs(groupNames) do
+    self:DeactivateKeybindGroup(name)
+  end
 end
 
 function KeybindMapper:ActivateKeybindGroup(groupname)

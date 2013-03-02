@@ -21,12 +21,14 @@ Public functions:
 	table GetConsoleCmdBoundKeys() table format  {keyName = consoleCmdString}
 	string,IsBind:bool GetKeyInfo(string keyName)
 	
-	bool IsBindOverrider(stirng bindName)
+	bool IsBindOverrider(string bindName)
 	
 	bool KeybindGroupExists(stirng groupName)
 	table GetGroupBoundKeys(string groupName)
 	string GetBoundKeyGroup(string keyName, string groupName)
 	string:groupname GetBindsGroup(stirng bindName)
+	
+	table(array of group names) GetKeybindGroupsForOverrideGroup(string overrideGroup)
 ]]--
 
 if(not KeyBindInfo) then
@@ -84,8 +86,6 @@ KeyBindInfo.ActionKeybinds = {
   		{"ToggleFlashlight", "Toggle Flashlight", "F"},
     	{"Taunt", "Taunt", "Q"},
     	{"ShowMap", "Show MiniMap", "C"},
-			{"ToggleSayings1","Sayings #1", "Z"},
-			{"ToggleSayings2","Sayings #2", "X"},
 			{"ToggleVoteMenu", "Vote menu" , "V"},
     	{"VoiceChat", "Use microphone", "Alt"},
     	{"TextChat", "Public chat", "Y"},
@@ -98,6 +98,11 @@ KeyBindInfo.ActionKeybinds = {
     	{"Weapon3", "Weapon #3", "Num3"},
     	{"Weapon4", "Weapon #4", "Num4"},
     	{"Weapon5", "Weapon #5", "Num5"},
+      {"RequestMenu", "X"},
+      {"RequestHealth", "Q"},
+      {"RequestAmmo", "Z"},
+      {"RequestOrder", "H"},
+      {"PingLocation", "MouseButton2"},
     	{"ClogBuildMode", "Place Clog", ""},
     }
 }
@@ -124,7 +129,7 @@ KeyBindInfo.MiscKeybinds = {
 }
 
 KeyBindInfo.CommanderShared = {
-		OverrideGroup = true,
+		OverrideGroup = "Commander",
 		Name = "CommanderShared",
 		Label = "Commander Shared Overrides",
 		
@@ -163,7 +168,7 @@ KeyBindInfo.CommanderHotKeys = {
 }
 
 KeyBindInfo.MarineCommander = {
-		OverrideGroup = true,
+		OverrideGroup = "MarineCommander",
 		Name = "MarineCommander",
 		Label = "Marine Commander Overrides",  
 		
@@ -177,7 +182,7 @@ KeyBindInfo.MarineCommander = {
 }
 
 KeyBindInfo.AlienCommander = {
-		OverrideGroup = true,
+		OverrideGroup = "AlienCommander",
 		Name = "AlienCommander",
 		Label = "Alien Commander Overrides",  
 
@@ -199,7 +204,7 @@ KeyBindInfo.HiddenKeybinds = {
 }
 
 KeyBindInfo.MarineSayings = {
-		OverrideGroup = true,
+		OverrideGroup = "Marine",
 		Name = "MarineSayings",
 		Label = "Marine Request Sayings",  
 
@@ -218,7 +223,7 @@ KeyBindInfo.MarineSayings = {
 }
 
 KeyBindInfo.AlienSayings = {
-		OverrideGroup = true,
+		OverrideGroup = "Alien",
 		Name = "AlienSayings",
 		Label = "Alien Sayings",  
 		
@@ -228,6 +233,51 @@ KeyBindInfo.AlienSayings = {
 			{"Saying_Chuckle", "Chuckle", ""},
 		}
 }
+
+KeyBindInfo.MarineBuy = {
+		OverrideGroup = "Marine",
+		Name = "MarineBuy",
+		Label = "Marine Buy",  
+
+		Keybinds = {
+      {"Buy_Shotgun",            "Shotgun", ""},           
+      {"Buy_Welder",             "Welder", ""},            
+      {"Buy_LayMines",           "Mines",  ""},         
+      {"Buy_GrenadeLauncher",    "GrenadeLauncher",  ""},  
+      {"Buy_Flamethrower",       "Flamethrower", ""},     
+      {"Buy_Jetpack",            "Jetpack", ""},          
+      {"Buy_Exosuit",            "Exosuit", ""},        
+      {"Buy_DualMinigunExosuit", "DualMinigunExosuit", ""},
+      {"Buy_Axe",                "Axe",  ""},              
+      {"Buy_Pistol",             "Pistol", ""},            
+      {"Buy_Rifle",              "Rifle",  ""}, 
+		}
+}
+
+KeyBindInfo.AlienBuy = {
+		OverrideGroup = "Alien",
+		Name = "AlienBuy",
+		Label = "Alien Buy",  
+
+		Keybinds = {
+      {"Buy_Skulk", "Skulk", ""},
+      {"Buy_Gorge", "Gorge", ""},
+      {"Buy_Lerk",  "Lerk",  ""},
+      {"Buy_Fade",  "Fade",  ""},
+      {"Buy_Onos",  "Onos", ""}, 
+      
+
+      {"Buy_Carapace", "Carapace", ""},
+      {"Buy_Regeneration", "Regeneration", ""},
+      {"Buy_Silence", "Silence", ""},
+      {"Buy_Camouflage", "Camouflage", ""},
+      {"Buy_Feint", "Feint", ""},
+      {"Buy_Celerity", "Celerity", ""},
+      {"Buy_Adrenaline", "Adrenaline", ""},
+      {"Buy_HyperMutation", "HyperMutation", ""},
+		}
+}
+
 
 KeyBindInfo.EngineProcessed = {
 	ToggleConsole = true,
@@ -387,8 +437,11 @@ function KeyBindInfo:AddDefaultKeybindGroups()
   else
     self:AddKeybindGroup(self.MiscKeybinds)
 	  self:AddKeybindGroup(self.HiddenKeybinds)
-	  self:AddKeybindGroup(self.MarineSayings)
+	  
 	  self:AddKeybindGroup(self.AlienSayings)
+	  self:AddKeybindGroup(self.MarineSayings) 
+	  self:AddKeybindGroup(self.MarineBuy)
+	  self:AddKeybindGroup(self.AlienBuy)	  
 	  
 	  self:AddKeybindGroup(self.CommanderShared)
 	  self:AddKeybindGroup(self.MarineCommander)
@@ -396,6 +449,21 @@ function KeyBindInfo:AddDefaultKeybindGroups()
 	  self:AddKeybindGroup(self.CommanderHotKeys)
 	end
 	
+end
+
+function KeyBindInfo:GetKeybindGroupsForOverrideGroup(overrideGroup)
+  
+  local groupNames = {}
+
+  //return group names in reverse order of what they are in self.KeybindGroups
+  for i=#self.KeybindGroups,1,-1 do
+    
+    if(self.KeybindGroups[i].OverrideGroup == overrideGroup) then
+      groupNames[#groupNames+1] = self.KeybindGroups[i].Name
+    end
+  end
+  
+  return groupNames
 end
 
 function KeyBindInfo:OnBindingsUIEntered()
@@ -433,7 +501,7 @@ end
 function KeyBindInfo:LoadAndValidateSavedKeyBinds()
   
   local version = Client.GetOptionString("Keybinds/Version", "")
-  
+  //self.KeybindNameToKey = KeybindMod:ResetKeybindTable()
   //protect against steam syncing reseting the games config file
   if(version ~= "2" and version ~= "3" and next(self.KeybindNameToKey)) then
     Client.SetOptionString("Keybinds/Version", "3")
@@ -462,6 +530,7 @@ function KeyBindInfo:LoadAndValidateSavedKeyBinds()
     self:Load_NewConfig(self.KeybindNameToKey)
 
     if(version == "2") then
+      RawPrint("Keybinds: Fixing modifers")
       self:ConvertModifiers()
       self:SaveChanges()
       Client.SetOptionString("Keybinds/Version", "3")
@@ -469,6 +538,7 @@ function KeyBindInfo:LoadAndValidateSavedKeyBinds()
   end
 
   if(version == "" or version == "1") then
+    RawPrint("Keybinds: Filling in free default keys")
 		self:FillInFreeDefaults()
 	end
 end
