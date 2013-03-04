@@ -957,42 +957,6 @@ function KeybindMapper:FillInMove(input, isCommander)
 	input.hotkey = (self.HotKey and Move[self.HotKey]) or 0
 end
 
-local KeyPassThrough = {
-	MouseButton0 = true,
-	MouseButton1 = true,
-	MouseButton2 = true,
-}
- 
-function KeybindMapper:CanKeyFallThrough(key)
-	if(key == "Escape") then
-		return false
-	end
-
-	if(KeyPassThrough[key]) then
-		return true
-	end
-	
-	if(KeybindMapper.CommanderPassthroughKeys[key] == 1) then
-	  return true
-	end
-
-	if(key == "Back") then
-	  local player = Client.GetLocalPlayer()
-	 
-	  if(player and player:isa("Spectator")) then
-	    return true
-	  end
-	end
-	
-	local BindOrCmd, IsBind = KeyBindInfo:GetKeyInfo(key)
-	
-	if(IsBind and KeyBindInfo.EngineProcessed[BindOrCmd]) then
-	  return true
-	end
-
-	return false
-end
-
 function KeybindMapper:AddTickAction(TickFunc, statetbl, IdString, duplicateMode)
 	
 	if(not statetbl) then

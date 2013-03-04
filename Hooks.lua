@@ -18,18 +18,7 @@ if(not hotreload) then
 end
 
 function KeybindMapper:SetupHooks()
-	self:RawHookClassFunction("Commander", "OverrideInput", "OverrideInput_Hook", PassHookHandle)
 	self:HookClassFunction("Commander", "OnInitLocalClient", "OnCommander")
-
-	self:RawHookClassFunction("Player", "OverrideInput", "OverrideInput_Hook", PassHookHandle)
-	
-	self:RawHookClassFunction("AlienSpectator", "OverrideInput", "OverrideInput_Hook", PassHookHandle)
-	self:RawHookClassFunction("MarineSpectator", "OverrideInput", "OverrideInput_Hook", PassHookHandle)
-	self:RawHookClassFunction("Spectator", "OverrideInput", "OverrideInput_Hook", PassHookHandle)
-	self.GorgeHook = self:RawHookClassFunction("Gorge", "OverrideInput", "OverrideInput_Hook", PassHookHandle)
-
-	self:ReplaceClassFunction("Embryo", "OverrideInput", "Embryo_OverrideInput")
-
 	
 	ClassHooker:SetClassCreatedIn("GUIFeedback", "lua/GUIFeedback.lua")
 	self:PostHookClassFunction("GUIFeedback", "Initialize", "GUIFeedbackCreated")
@@ -94,10 +83,6 @@ end
 
 function KeybindMapper:OverrideInput_Hook(hookHandle, entitySelf, input)
 
-  //were not the top hook make sure we don't get HOOKCEPTION no going deeper here for us
-  if(entitySelf.OverrideInput ~= hookHandle[3].Dispatcher and entitySelf:isa("Gorge")) then
-    return input
-  end
 
 	self:InputTick()
 	self:FillInMove(input, entitySelf:isa("Commander"))
@@ -105,66 +90,14 @@ function KeybindMapper:OverrideInput_Hook(hookHandle, entitySelf, input)
 	return input
 end
 
-local ValidEmbryoBits = 0
 
-local BlockedBits = {
-  "PrimaryAttack",
-	"SecondaryAttack",
-	"NextWeapon",
-	"PrevWeapon",
-	"Reload",
-	"Use",
-	"Jump",
-	"Crouch",
-	"MovementModifier",
-	"Buy",
-}
-
-for i,bitName in ipairs(BlockedBits) do
-   ValidEmbryoBits = bit.bor(ValidEmbryoBits, Move[bitName])
-end
-
-ValidEmbryoBits = bit.bnot(ValidEmbryoBits)
-
-// Allow players to rotate view, chat, scoreboard, etc. but not move
-function KeybindMapper:Embryo_OverrideInput(entitySelf, input)
-
-  self:InputTick()
-	self:FillInMove(input, entitySelf:isa("Commander"))
-
-    // Completely override movement and commands
-   input.move.x = 0
-   input.move.y = 0
-   input.move.z = 0
-
-   // Only allow some actions like going to menu, chatting and Scoreboard (not jump, use, etc.)
-   input.commands = bit.band(input.commands, ValidEmbryoBits)
-    
-  return input
-end
-
-function KeybindMapper:Pre_SendKeyEvent(HookHandle, key, down, IsRepeat)
+function KeybindMapper:Pre_SendKeyEvent(HookHandle, key, down, amount, IsRepeat)
  	local handled 
   
   --don't do anything if another hook has already handled it
 	if(self.IsShutDown or HookHandle:GetReturn() or IsRepeat) then
 		return
 	end
-
-  if(key == InputKey.MouseButton0 or key == InputKey.MouseButton1 or key == InputKey.MouseButton2) then
-    
-    local mouseVisible = Client.GetMouseVisible()
-    
-    //always passthough all mouselclicks when a commander or the mouse is visible
-    if(mouseVisible or self.IsCommander) then
-      return
-    end
-    
-    //pass clicks when the scoreboard is open to the guisystem
-    if(not mouseVisible and ScoreboardUI_GetVisible and ScoreboardUI_GetVisible()) then
-      return
-    end    
-  end
 
 	if(key ~= InputKey.MouseX and key ~= InputKey.MouseY) then 
 		local keystring = InputKeyHelper:ConvertToKeyName(key, down)
@@ -195,21 +128,6 @@ function KeybindMapper:Pre_SendKeyEvent(HookHandle, key, down, IsRepeat)
 	if(handled) then
 		HookHandle:SetReturn(true)
 		HookHandle:BlockOrignalCall()
-	end
-end
-
-function KeybindMapper:Post_SendKeyEvent(HookHandle, key, down)
-
-	if(self.IsShutDown or key == InputKey.MouseX or key == InputKey.MouseY) then
-		return false
-	end
-
-	local handled = HookHandle:GetReturn()
-
-	if(not handled) then
-		local keystring = InputKeyHelper:ConvertToKeyName(key, down)
-
-		HookHandle:SetReturn(not self:CanKeyFallThrough(keystring))
 	end
 end
 
