@@ -20,84 +20,98 @@ end
 function KeybindMapper:SetupHooks()
 	self:HookClassFunction("Commander", "OnInitLocalClient", "OnCommander")
 	
-	ClassHooker:SetClassCreatedIn("GUIFeedback", "lua/GUIFeedback.lua")
-	self:PostHookClassFunction("GUIFeedback", "Initialize", "GUIFeedbackCreated")
-
-	LoadTracker:HookFileLoadFinished("lua/GUIFeedback.lua", self, "FixUpGUIFeedback")
-
 	self:HookFunction("MainMenu_Open", "InGameMenuOpened")
 	self:HookFunction("ChatUI_SubmitChatMessageBody", "ChatClosed")
 	
 	self:HookFunction("MainMenu_ReturnToGame", "InGameMenuClosed")
 	
 	ClassHooker:SetClassCreatedIn("GUIManager", "lua/GUIManager.lua")
-	self:HookFunction("MouseTracker_SendKeyEvent", "Pre_SendKeyEvent"):SetPassHandle(true)
-	self:PostHookFunction("MouseTracker_SendKeyEvent", "Post_SendKeyEvent"):SetPassHandle(true)
-		
+			
 	self:ReplaceFunction("ExitPressed", function() end)
 end
 
-function KeybindMapper:FixUpGUIFeedback()
-	GUIFeedback.SendKeyEvent = function(selfArg, key, down)
-    if down and key == selfArg.OpenFeedbackKey then
-			ShowFeedbackPage()
-     return true
-    end
-    return false
-	end
-	
-	GUIFeedback.OnKeybindsChanged = function(selfArg,keyChanges)
-   	if(keyChanges["OpenFeedback"]) then
-			//selfArg.feedbackText:SetText(KeyBindInfo_FillInBindKeys("Press @OpenFeedback@ to give us feedback"))
-			local key = KeyBindInfo:GetBoundKey("OpenFeedback")
-			
-			selfArg.OpenFeedbackKey = (key and InputKey[key]) or false
-   	end
-	end
-end
 
-function KeybindMapper:GUIFeedbackCreated(selfArg)
-	
-	local key = KeyBindInfo:GetBoundKey("OpenFeedback")
-			
-	selfArg.OpenFeedbackKey = (key and InputKey[key]) or false
-	
-	//selfArg.feedbackText:SetText(KeyBindInfo_FillInBindKeys("Press @OpenFeedback@ to give us feedback"))
-	
-	KeyBindInfo:RegisterForKeyBindChanges(selfArg, "OnKeybindsChanged")
-end
- 
-function KeybindMapper:AlienBuy_Hook(entitySelf)
-  if(entitySelf ~= Client.GetLocalPlayer()) then
-    return
-  end
-  
-	if(entitySelf.buyMenu) then
-		self:BuyMenuOpened()
-	else
-	  if(self.BuyMenuOpen) then
-		  self:BuyMenuClosed()
-		end
-	end
-end
-
-function KeybindMapper:OverrideInput_Hook(hookHandle, entitySelf, input)
+function New(hookHandle, entitySelf, input)
 
 
-	self:InputTick()
-	self:FillInMove(input, entitySelf:isa("Commander"))
+	KeybindMapper:InputTick()
+	KeybindMapper:FillInMove(input, entitySelf:isa("Commander"))
 		
 	return input
 end
 
+/**
+ * Called by the engine whenever a key is pressed or released. Return true if
+ * the event should be stopped here.
+ */
+local function OnSendKeyEvent(key, down, amount, repeated)
 
-function KeybindMapper:Pre_SendKeyEvent(HookHandle, key, down, amount, IsRepeat)
- 	local handled 
-  
-  --don't do anything if another hook has already handled it
-	if(self.IsShutDown or HookHandle:GetReturn() or IsRepeat) then
-		return
-	end
+    local stop = MouseTracker_SendKeyEvent(key, down, amount, keyEventBlocker ~= nil)
+    
+    if keyEventBlocker then
+        return keyEventBlocker:SendKeyEvent(key, down, amount)
+    end
+    
+    if not stop then
+        stop = GetGUIManager():SendKeyEvent(key, down, amount)
+    end
+    
+    if not stop then
+    
+        local winMan = GetWindowManager()
+        if winMan then
+            stop = winMan:SendKeyEvent(key, down, amount)
+        end
+        
+    end
+    
+    if not stop then
+    
+        if not Client.GetMouseVisible() then
+        
+            if key == InputKey.MouseX then
+                _cameraYaw = _cameraYaw - ApplyMouseAdjustments(amount)
+            elseif key == InputKey.MouseY then
+            
+                local limit = math.pi / 2 + 0.0001
+                _cameraPitch = Math.Clamp(_cameraPitch + ApplyMouseAdjustments(amount), -limit, limit)
+                
+            end
+        end
+        
+        stop = KeybindMapper:SendKeyEvent(key, down, amount, repeated)
+        
+        // Filter out the OS key repeat for our general movement (but we'll use it for GUI).
+        if not repeated then
+            _keyState[key] = down
+            if down and not moveInputBlocked then
+                _keyPressed[key] = amount
+            end
+        end    
+    
+    end
+    
+    if not stop then
+    
+        local player = Client.GetLocalPlayer()
+        if player then
+            stop = player:SendKeyEvent(key, down)
+        end
+        
+    end
+
+    if not stop and down then
+        ConsoleBindingsKeyPressed(key)
+    end
+    
+    return stop
+    
+end
+
+
+function KeybindMapper:SendKeyEvent(key, down, amount, IsRepeat)
+
+  local handled = false
 
 	if(key ~= InputKey.MouseX and key ~= InputKey.MouseY) then 
 		local keystring = InputKeyHelper:ConvertToKeyName(key, down)
@@ -125,10 +139,7 @@ function KeybindMapper:Pre_SendKeyEvent(HookHandle, key, down, amount, IsRepeat)
     end
 	end
 
-	if(handled) then
-		HookHandle:SetReturn(true)
-		HookHandle:BlockOrignalCall()
-	end
+	return handled
 end
 
 if(hotreload) then

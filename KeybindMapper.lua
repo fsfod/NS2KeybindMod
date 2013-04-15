@@ -587,6 +587,7 @@ function KeybindMapper:FindKeysAction(key)
 
 	local i = #self.OverrideGroups
 	
+	//search backwards from the end of the override list so 
 	while i ~= 0 do
 	  
 		local bindname = self.OverrideGroups[i].Keys[key]
@@ -809,9 +810,9 @@ end
 
 function KeybindMapper:OnKeyUp(key)
 
-	if(MouseStateTracker:IsStateActive("chat") or self.InGameMenuOpen or (MouseStateTracker:IsStateActive("buymenu") and MenuPassThrough[key])) then
-		return false
-	end
+	//if(MouseStateTracker:IsStateActive("chat") or self.InGameMenuOpen or (MouseStateTracker:IsStateActive("buymenu") and MenuPassThrough[key])) then
+	//	return false
+	//end
 
 
   if(self.ActiveModifierKeys[key]) then
