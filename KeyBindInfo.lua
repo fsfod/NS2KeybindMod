@@ -5,7 +5,7 @@
 --[[
 Notes
 
-    
+
 Public functions:
   string:replacedBind SetKeybind(string keyName, string BindName [integer keyIndex])
   string:boundKey, string:groupName, bool:IsOverride GetBindinfo(string bindname)
@@ -42,7 +42,6 @@ KeyBindInfo = {
   BoundConsoleCmds = {},
   BoundKeys = {}, --stores the maping of a key to a keybindname. Override bind keys never get put in this table
   
-  Changes = {},
   KeyBindsChangedCallsbacks = {},
 
   KeybindGroupLookup = {},
@@ -392,13 +391,7 @@ function KeyBindInfo:ResetKeybinds()
   end
 
   self:ReloadKeyBindInfo()
-  
-
-  for bindname,v in pairs(self.KeybindNameToKey) do
-    self.Changes[bindname] = true
-  end
-
-  self:OnBindingsChanged(Changes)
+  self:OnBindingsChanged()
 end
 
 function KeyBindInfo:FillInFreeDefaults()
@@ -476,7 +469,7 @@ function KeyBindInfo:OnBindingsUIExited()
     local changes, changedCmds = self:GetChangedKeybinds(self.KeyBindSnapshot)
 
     if(next(changes) or (changedCmd and next(changedCmd))) then
-      self:OnBindingsChanged(changes, changedCmds)
+      self:OnBindingsChanged()
     end
 
     self.KeyBindSnapshot = nil
@@ -748,7 +741,7 @@ function KeyBindInfo:SetConsoleCmdBind(key, cmdstring)
   local OldBindorCmd, IsBind = self:GetKeyInfo(key)
 
   if(OldBindorCmd) then
-    self:UnbindKey(key, true)
+    self:UnbindKey(key)
   end
 
   self.BoundConsoleCmds[key] = cmdstring
@@ -756,19 +749,7 @@ function KeyBindInfo:SetConsoleCmdBind(key, cmdstring)
   Client.SetOptionString("Keybinds/ConsoleCmds/"..key, cmdstring)
 
   self:SaveConsoleCmdKeyList()
-
-  local tbl = {}
-
-  if(OldBindorCmd) then
-    if(IsBind) then
-      tbl[OldBindorCmd] = true 
-      self:OnBindingsChanged(tbl, nil)
-    else
-      tbl[key] = true
-      self:OnBindingsChanged(nil, tbl)
-    end
-  end
-
+  self:OnBindingsChanged(true)
 end
 
 local function GetKeyIndex(keyValue, key)
@@ -800,23 +781,17 @@ function KeyBindInfo:GetKeyInfo(key)
   return nil, false
 end
 
-function KeyBindInfo:ClearConsoleCmdBind(key, isMultiEdit)
+function KeyBindInfo:ClearConsoleCmdBind(key)
 
   self.BoundConsoleCmds[key] = nil
   Client.SetOptionString("Keybinds/ConsoleCmds/"..key, "")
 
   self:SaveConsoleCmdKeyList()
   
-  if(not isMultiEdit) then
-    local tbl = {}
-    tbl[key] = true
-    
-    self:OnBindingsChanged(nil, tbl)
-  end
+  self:OnBindingsChanged(true)
 end
 
 function KeyBindInfo:SaveConsoleCmdKeyList()
-
 
   if(next(self.BoundConsoleCmds)) then
     local keylist = {}
@@ -959,15 +934,15 @@ function KeyBindInfo:CheckIsConflicSolved(changedKey)
 end
 
 
-function KeyBindInfo:SetKeybindWithModifier(key, modifierKey, bindname, keyIndex, isMultiEdit)
-  assert(modifierKey and self.ModifierKeys[modifierKey], "")
+function KeyBindInfo:SetKeybindWithModifier(key, modifierKey, bindname, keyIndex)
+  assert(modifierKey and self.ModifierKeys[modifierKey], "invalid modifer keyname")
   
   local compiledKey = modifierKey.."-"..key
   
-  return self:SetKeybind(compiledKey, bindname, keyIndex, isMultiEdit)
+  return self:SetKeybind(compiledKey, bindname, keyIndex)
 end
 
-function KeyBindInfo:SetKeybind(key, bindname, keyIndex, isMultiEdit)
+function KeyBindInfo:SetKeybind(key, bindname, keyIndex)
 
   local clearedBind
 
@@ -978,9 +953,6 @@ function KeyBindInfo:SetKeybind(key, bindname, keyIndex, isMultiEdit)
   local changes, CmdChanges
   local IsOverride = self:IsBindOverrider(bindname)
 
-
-  self.Changes[bindname] = true
-  
 
   if(not IsOverride) then
     local oldBindKey = self:GetBoundKey(bindname, keyIndex)
@@ -1005,12 +977,11 @@ function KeyBindInfo:SetKeybind(key, bindname, keyIndex, isMultiEdit)
       
       if(IsBind) then
         clearedBind = clearedBindOrCmd
-        self.Changes[clearedBindOrCmd] = true
       else
-        CmdChanges[key] = true
+        CmdChanges = true
       end
 
-      self:UnbindKey(key, true)
+      self:UnbindKey(key)
     end
   else
     --check to see this key is not bound to something else in this override group
@@ -1018,9 +989,7 @@ function KeyBindInfo:SetKeybind(key, bindname, keyIndex, isMultiEdit)
     local groupbind, bindKeyIndex  = self:GetBoundKeyGroup(key, group.Name)
     
     if(groupbind) then
-      self.Changes[groupbind] = true
-      
-      self:ClearBind(groupbind, bindKeyIndex, true)
+      self:ClearBind(groupbind, bindKeyIndex)
     end
     
     clearedBind = groupbind
@@ -1028,9 +997,7 @@ function KeyBindInfo:SetKeybind(key, bindname, keyIndex, isMultiEdit)
 
   self:SaveKeybind(bindname, key, keyIndex, IsOverride)
 
-  if(not isMultiEdit) then
-    self:OnBindingsChanged()
-  end
+  self:OnBindingsChanged()
   
   return clearedBind
 end
@@ -1039,7 +1006,7 @@ function KeyBindInfo:SaveChanges()
   KeybindMod:SaveKeybinds()
 end
 
-function KeyBindInfo:UnbindKey(key, isMultiEdit)
+function KeyBindInfo:UnbindKey(key)
   
   local bindName, IsBind, keyIndex = self:GetKeyInfo(key)
   
@@ -1049,13 +1016,13 @@ function KeyBindInfo:UnbindKey(key, isMultiEdit)
   end
 
   if(IsBind) then    
-    self:ClearBind(bindName, keyIndex, isMultiEdit)
+    self:ClearBind(bindName, keyIndex)
   else
-    self:ClearConsoleCmdBind(key, isMultiEdit)
+    self:ClearConsoleCmdBind(key)
   end
 end
 
-function KeyBindInfo:ClearBind(bindName, keyIndex, isMultiEdit)
+function KeyBindInfo:ClearBind(bindName, keyIndex)
 
   local IsOverride = self:IsBindOverrider(bindName)
 
@@ -1069,11 +1036,8 @@ function KeyBindInfo:ClearBind(bindName, keyIndex, isMultiEdit)
     end
 
     self:SaveKeybind(bindName, false, keyIndex, IsOverride)
-    self.Changes[bindName] = key 
 
-    if(not isMultiEdit) then
-      self:OnBindingsChanged()
-    end
+    self:OnBindingsChanged()
   end
 end
 
@@ -1151,18 +1115,15 @@ function KeyBindInfo:Log(level, msg)
   end
 end
 
-function KeyBindInfo:OnBindingsChanged(bindChanges, ConsoleCmdChanges)
+function KeyBindInfo:OnBindingsChanged(ConsoleCmdChanges)
   
   self:SaveChanges()
   
-  bindChanges = bindChanges or self.Changes
   ConsoleCmdChanges = ConsoleCmdChanges or {}
   
   for _,hook in ipairs(self.KeyBindsChangedCallsbacks) do
-    hook[2](hook[1], bindChanges, ConsoleCmdChanges)
+    hook[2](hook[1], ConsoleCmdChanges)
   end
-  
-  self.Changes = {}
 end
 
 function KeyBindInfo:RegisterForKeyBindChanges(selfTable, funcName)
@@ -1198,25 +1159,25 @@ function KeyBindInfo:GetChangedKeybinds(old)
   local Keys = old[1]
   
     --mark unchanged keys so we can later nil them
-    for bindname,key in pairs(Keys) do
-      if(self.KeybindNameToKey[bindname] == key) then
-        Keys[bindname] = false
-      end
+  for bindname,key in pairs(Keys) do
+    if(self.KeybindNameToKey[bindname] == key) then
+      Keys[bindname] = false
     end
+  end
 
-    --find new keys added
-    for bindname,key in pairs(self.KeybindNameToKey) do
-      if(Keys[bindname] == nil) then
-        Keys[bindname] = ""
-      end
+  --find new keys added
+  for bindname,key in pairs(self.KeybindNameToKey) do
+    if(Keys[bindname] == nil) then
+      Keys[bindname] = ""
     end
+  end
 
-    --remove marked keys now that we've found new keys
-    for bindname,key in pairs(Keys) do
-      if(key == false) then
-        Keys[bindname] = nil
-      end
+  --remove marked keys now that we've found new keys
+  for bindname,key in pairs(Keys) do
+    if(key == false) then
+      Keys[bindname] = nil
     end
+  end
 
   local ConsoleCmds = old[2]
 
