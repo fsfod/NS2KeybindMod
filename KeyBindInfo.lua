@@ -8,7 +8,7 @@ Notes
 
 Public functions:
   string:replacedBind SetKeybind(string keyName, string BindName [integer keyIndex])
-  string:boundKey, string:groupName, bool:IsOverride GetBindinfo(string bindname)
+  string:boundKey, [string:groupName, bool:IsOverride] GetBindinfo(string bindname)
   bool IsKeyBound(string keyName)
   string GetBoundKey(string bindName [,integer keyIndex])
   string GetBindSetToKey(string keyName)
@@ -32,7 +32,7 @@ Public functions:
 ]]--
 
 if(not KeyBindInfo) then
-  
+
 KeyBindInfo = {
   Loaded = false,
   KeybindEntrys = {},
@@ -53,12 +53,13 @@ KeyBindInfo = {
 end
 
 KeyBindInfo.ModifierKeys = {
-  Shift = true,
-  Control = true,
-  Alt = true,
+  LeftShift = true,
+  RightShift = true,
+  LeftControl = true,
+  RightControl = true,
+  LeftAlt = true,
+  RightAlt = true,
 }
-
-
 
 KeyBindInfo.MovementKeybinds = {
     Name = "Movement",
@@ -68,7 +69,7 @@ KeyBindInfo.MovementKeybinds = {
       {"MoveLeft", "Move Left", "A"},
       {"MoveRight", "Move Right", "D"},
       {"Jump", "Jump", "Space"},
-      {"MovementModifier", "Movement special", "Shift"},
+      {"MovementModifier", "Movement special", "LeftShift"},
       {"Crouch", "Crouch", "Control"},
     }
 }
@@ -97,19 +98,12 @@ KeyBindInfo.ActionKeybinds = {
       {"Weapon3", "Weapon #3", "Num3"},
       {"Weapon4", "Weapon #4", "Num4"},
       {"Weapon5", "Weapon #5", "Num5"},
+      {"LastWeapon", "Last used weapon", ""},
       {"RequestMenu", "X"},
       {"RequestHealth", "Q"},
       {"RequestAmmo", "Z"},
       {"RequestOrder", "H"},
       {"PingLocation", "MouseButton2"},
-      {"ClogBuildMode", "Place Clog", ""},
-    }
-}
-
-KeyBindInfo.MiscKeybinds_StandAlone = {
-    Name = "Misc",
-    Keybinds = {
-      {"ToggleConsole", "Toggle Console",         "Grave"},
     }
 }
 
@@ -305,15 +299,10 @@ KeyBindInfo.CommanderUsableGlobalBinds = {
   ShowMap = true,
 }
 
-function KeyBindInfo:Init(Standalone)
+function KeyBindInfo:Init()
   
   if(not self.Loaded) then
-    if(Standalone) then
-      self.ConfigPath = "input/"
-      self.Standalone = true
-    else
-      self.ConfigPath = "Keybinds/Binds/"
-    end
+    self.ConfigPath = "input/"
     
     self:AddDefaultKeybindGroups()
     
@@ -322,8 +311,6 @@ function KeyBindInfo:Init(Standalone)
     end
   end
 end
-
-
 
 function KeyBindInfo:ReloadKeyBindInfo(returnChanges)  
   //self.KeybindNameToKey = {}
@@ -414,34 +401,20 @@ function KeyBindInfo:AddDefaultKeybindGroups()
   
   self:AddKeybindGroup(self.MovementKeybinds)
   
-  if(not self.Standalone) then
-    
-    local lastWeapon = {
-      "LastWeapon", "Last used weapon", ""
-    }
-    
-    table.insert(KeyBindInfo.ActionKeybinds.Keybinds, lastWeapon)
-  end
-  
   self:AddKeybindGroup(self.ActionKeybinds)
 
-  if(self.Standalone) then
-    self:AddKeybindGroup(self.MiscKeybinds_StandAlone)
-  else
-    self:AddKeybindGroup(self.MiscKeybinds)
-    self:AddKeybindGroup(self.HiddenKeybinds)
-    
-    self:AddKeybindGroup(self.AlienSayings)
-    self:AddKeybindGroup(self.MarineSayings) 
-    self:AddKeybindGroup(self.MarineBuy)
-    self:AddKeybindGroup(self.AlienBuy)    
-    
-    self:AddKeybindGroup(self.CommanderShared)
-    self:AddKeybindGroup(self.MarineCommander)
-    self:AddKeybindGroup(self.AlienCommander)
-    self:AddKeybindGroup(self.CommanderHotKeys)
-  end
+  self:AddKeybindGroup(self.MiscKeybinds)
+  self:AddKeybindGroup(self.HiddenKeybinds)
   
+  self:AddKeybindGroup(self.AlienSayings)
+  self:AddKeybindGroup(self.MarineSayings) 
+  self:AddKeybindGroup(self.MarineBuy)
+  self:AddKeybindGroup(self.AlienBuy)    
+  
+  self:AddKeybindGroup(self.CommanderShared)
+  self:AddKeybindGroup(self.MarineCommander)
+  self:AddKeybindGroup(self.AlienCommander)
+  self:AddKeybindGroup(self.CommanderHotKeys)  
 end
 
 function KeyBindInfo:GetKeybindGroupsForOverrideGroup(overrideGroup)
@@ -503,7 +476,6 @@ function KeyBindInfo:LoadAndValidateSavedKeyBinds()
 
   if(version == "") then
     self:ImportKeys()
-    self:ConvertModifiers()
     //clear the keybind list
     //Client.SetOptionString("Keybinds", "")
     
@@ -515,7 +487,6 @@ function KeyBindInfo:LoadAndValidateSavedKeyBinds()
     RawPrint("Keybinds: Converting keybinds to new storage system")
     
     self:Load_OldConfig()
-    self:ConvertModifiers()
     self:SaveChanges()
     Client.SetOptionString("Keybinds/Version", "3")
 
@@ -524,7 +495,6 @@ function KeyBindInfo:LoadAndValidateSavedKeyBinds()
 
     if(version == "2") then
       RawPrint("Keybinds: Fixing modifers")
-      self:ConvertModifiers()
       self:SaveChanges()
       Client.SetOptionString("Keybinds/Version", "3")
     end
@@ -618,52 +588,6 @@ function KeyBindInfo:ImportKeys()
   Shared.Message("Sucessfuly imported "..importCount.." keybinds.")
 end
 
-local ModifierConversions = {
-  LeftShift = "Shift",
-  LeftControl = "Control",
-  LeftAlt = "Alt",
-  RightShift = "Shift",
-  RightControl = "Control",
-  RightAlt = "Alt",
-}
-
-function KeyBindInfo:ConvertModifiers()
-  
-  local modiferSet = {}
-  
-  for bind,key in pairs(self.KeybindNameToKey) do
-    
-    local newKey = ModifierConversions[key]
-    
-    if(newKey) then
-      
-      local group = self.KeybindToGroup[bind]
-      
-      if(not group.OverrideGroup) then
-        local existingBind, isBind, index = self:GetKeyInfo(newKey)
-        
-        if(not existingBind or isBind) then
-          self.BoundKeys[key] = nil
-
-          if(not existingBind) then
-            self.KeybindNameToKey[bind] =  newKey
-            self.BoundKeys[newKey] = bind
-          else
-            self.KeybindNameToKey[bind] = nil
-          end
-        end
-        
-      else
-
-        if(not self:GetBoundKeyGroup(newKey, group.Name)) then
-          self.KeybindNameToKey[bind] = newKey
-        end
-      end
-    end
-  end
-  
-end
-
 function KeyBindInfo:SaveKeybind(bindName, key, keyIndex, isOverrideKey)
 
   assert(type(key) == "string" or key == false)
@@ -723,17 +647,8 @@ end
 function KeyBindInfo:LoadConsoleCmdBinds()
   self.BoundConsoleCmds = {}
 
-  local consolekeys = Client.GetOptionString("Keybinds/ConsoleKeys", "")
+  //self.BoundConsoleCmds[key] = cmdstring
 
-  if(consolekeys ~= "") then
-    for key in consolekeys:gmatch("[^,]+") do
-      local cmdstring = Client.GetOptionString("Keybinds/ConsoleCmds/"..key, "")
-
-      if(cmdstring ~= "") then
-        self.BoundConsoleCmds[key] = cmdstring
-      end
-    end
-  end
 end
 
 function KeyBindInfo:SetConsoleCmdBind(key, cmdstring)
@@ -746,7 +661,7 @@ function KeyBindInfo:SetConsoleCmdBind(key, cmdstring)
 
   self.BoundConsoleCmds[key] = cmdstring
 
-  Client.SetOptionString("Keybinds/ConsoleCmds/"..key, cmdstring)
+  
 
   self:SaveConsoleCmdKeyList()
   self:OnBindingsChanged(true)
@@ -1242,10 +1157,6 @@ function KeyBindInfo:Load_OldConfig()
     else
       self:LoadGroup(bindgroup)
     end
-  end
-  
-  if(not self.Standalone) then
-    self:LoadConsoleCmdBinds()
   end
   
 end
