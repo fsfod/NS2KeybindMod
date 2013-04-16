@@ -466,44 +466,18 @@ end
 
 function KeyBindInfo:LoadAndValidateSavedKeyBinds()
   
-  local version = Client.GetOptionString("Keybinds/Version", "")
-  //self.KeybindNameToKey = KeybindMod:ResetKeybindTable()
-  //protect against steam syncing reseting the games config file
-  if(version ~= "2" and version ~= "3" and next(self.KeybindNameToKey)) then
-    Client.SetOptionString("Keybinds/Version", "3")
-    version = "3" 
-  end
-
-  if(version == "") then
-    self:ImportKeys()
-    //clear the keybind list
-    //Client.SetOptionString("Keybinds", "")
-    
-    Client.SetOptionString("Keybinds/Version", "3")
-    self:SaveChanges()
-    
-  elseif(version == "1") then
-    
-    RawPrint("Keybinds: Converting keybinds to new storage system")
-    
-    self:Load_OldConfig()
-    self:SaveChanges()
-    Client.SetOptionString("Keybinds/Version", "3")
-
-  else
-    self:Load_NewConfig(self.KeybindNameToKey)
-
-    if(version == "2") then
-      RawPrint("Keybinds: Fixing modifers")
-      self:SaveChanges()
-      Client.SetOptionString("Keybinds/Version", "3")
-    end
-  end
-
-  if(version == "" or version == "1") then
-    RawPrint("Keybinds: Filling in free default keys")
+  local config = LoadConfigFile("keybinds.json")
+  
+  if(not config) then
     self:FillInFreeDefaults()
+    self:SaveChanges()
+  else
+    self.KeybindNameToKey = config.keybinds
   end
+  
+  
+  self:Load_NewConfig(self.KeybindNameToKey)
+
 end
 
 local KeyNameFixups = {
@@ -644,11 +618,12 @@ function KeyBindInfo:SaveKeybind(bindName, key, keyIndex, isOverrideKey)
   end
 end
 
+local bindingsFileName = "ConsoleBindings.json"
+
 function KeyBindInfo:LoadConsoleCmdBinds()
-  self.BoundConsoleCmds = {}
-
-  //self.BoundConsoleCmds[key] = cmdstring
-
+  
+  // Load the bindings from file if the file exists.
+  self.BoundConsoleCmds = LoadConfigFile(bindingsFileName) or { }
 end
 
 function KeyBindInfo:SetConsoleCmdBind(key, cmdstring)
@@ -660,8 +635,6 @@ function KeyBindInfo:SetConsoleCmdBind(key, cmdstring)
   end
 
   self.BoundConsoleCmds[key] = cmdstring
-
-  
 
   self:SaveConsoleCmdKeyList()
   self:OnBindingsChanged(true)
@@ -918,13 +891,15 @@ function KeyBindInfo:SetKeybind(key, bindname, keyIndex)
 end
 
 function KeyBindInfo:SaveChanges()
-  KeybindMod:SaveKeybinds()
+  SaveConfigFile("keybinds.json", {
+    keybinds = self.KeybindNameToKey
+  })
 end
 
 function KeyBindInfo:UnbindKey(key)
-  
+
   local bindName, IsBind, keyIndex = self:GetKeyInfo(key)
-  
+
   if(not bindName) then
       self:Log(1, "\""..key.."\" is already unbound")
     return
