@@ -280,18 +280,27 @@ local PulsedInputBits = {
   
 }
 
+function KeybindMapper:AddMoveBitBind(bindName, moveBit)
+
+  local setInputBit = function(keyDown)  
+    if(keyDown) then
+      self.MoveInputBitFlags = bit.bor(self.MoveInputBitFlags, moveBit)
+    else
+      self.MoveInputBitFlags = bit.band(self.MoveInputBitFlags, bit.bnot(moveBit))
+    end
+  end
+
+  self.InputBitActions[setInputBit] = bindName
+  self:RegisterActionToBind(bindName, setInputBit)
+end
+
 function KeybindMapper:SetupMoveVectorAndInputBitActions()
-    
+
   for _,bitname in ipairs(MoveEnum) do
     if(not SkipMoveBits[bitname] and not PulsedInputBits[bitname]) then
-     local action = KeybindMapper.CreateActionHelper(true, true, self,  bitname)
-       action.InputBit = bitname
-      action.OnDown = self.SetInputBit
-       action.OnUp = self.SetInputBit
-       action.UpdatesMove = true
-     
-       self.InputBitActions[Move[bitname]] = action
-       self:RegisterActionToBind(bitname, action)
+      assert(Move[bitName])
+      
+      self:AddMoveBitBind(bitname, Move[bitName])
     end
   end
 
@@ -807,21 +816,28 @@ end
 
 function KeybindMapper:ActivateAction(action, key, down, modifier)
   
-  local func = action.OnDown
-  local result = false
-
-  if(not down) then
-    func = action.OnUp
-  else
+  if(down and modifier) then
     
-    if(modifier) then
-      
-      if(not self.ActiveModifierKeys[modifier]) then
-        self.ActiveModifierKeys[modifier] = {}
-      end
-      
-      self.ActiveModifierKeys[modifier][key] = action
+    if(not self.ActiveModifierKeys[modifier]) then
+      self.ActiveModifierKeys[modifier] = {}
     end
+    
+    self.ActiveModifierKeys[modifier][key] = action
+  end
+  
+  //no special logic for actions that are just a plain functions 
+  if(type(action) == "function") then
+    return func(down, key, modifier)
+  end
+  
+  local result = false
+  
+  if(type(action) == "table") then
+    if(not down) then
+      func = action.OnUp
+    else
+      func = action.OnDown
+    end  
   end
   
   if(action.KeyDownArgIndex) then
