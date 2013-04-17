@@ -68,40 +68,6 @@ KeybindMapper.CommanderPassthroughKeys = {
 }
 
 
---Script.Load("lua/BindingsShared.lua")
-
-local HotkeyPassThrough = {
-  Space = true,
-  ESC = true,
-  A = true,
-  B = true,
-  C = true,
-  D = true,
-  E = true,
-  F = true,
-  G = true,
-  H = true,
-  I = true,
-  J = true,
-  K = true,
-  L = true,
-  M = true,
-  N = true,
-  O = true,
-  P = true,
-  Q = true,
-  R = true,
-  S = true,
-  T = true,
-  U = true,
-  V = true,
-  W = true,
-  X = true,
-  Y = true,
-  Z = true,
-}
-
-
 local MovementKeybinds = {
   MoveForward = {"z", 1, "MoveForward", false},
   MoveBackward = {"z", -1, "MoveBackward", false},
@@ -147,7 +113,7 @@ function KeybindMapper:Startup()
   
   self.IsShutDown = false
 
-  PlayerEvents:HookTeamChanged(self, "OnPlayerTeamChange")
+  //PlayerEvents:HookTeamChanged(self, "OnPlayerTeamChange")
 end
 
 function KeybindMapper:ShutDown()
@@ -173,7 +139,7 @@ function KeybindMapper:ShutDown()
   self.CommanderOverrides = nil
   self.CommanderTeamOverrides = nil
   
-  PlayerEvents.UnregisterAllCallbacks(self)
+  //PlayerEvents.UnregisterAllCallbacks(self)
 end
 
 function KeybindMapper:FullResetState()
@@ -622,20 +588,11 @@ local MenuPassThrough = {
   Escape = false,
 }
 
-
-
 function KeybindMapper:OnKeyDown(key)
 
-  if(MouseStateTracker:IsStateActive("chat") or self.InGameMenuOpen or (MouseStateTracker:IsStateActive("buymenu") and MenuPassThrough[key])) then
-    return false
-  end
-
-  --The Engines Console input event handler should be filtering all key input events when the console is open
-  --so they don't get sent to other input handlers but doesn't for some dumb reason
-  if(key == self.ConsoleKey) then
-      self.ConsoleOpen = not self.ConsoleOpen      
-    return true
-  end
+  //if(MouseStateTracker:IsStateActive("chat") or self.InGameMenuOpen or (MouseStateTracker:IsStateActive("buymenu") and MenuPassThrough[key])) then
+  //  return false
+  //end
 
   if(self.FilteredKeys[key]) then
     for _,action in ipairs(self.FilteredKeys[key]) do
@@ -890,12 +847,7 @@ function KeybindMapper:SetInputBit(bitName, keydown, keyName)
 
   assert(Move[bitName], "Uknowned input bit "..(bitName or "nil")) 
 
-  if(keydown) then
-    --fix shooting when clicking close in buy menus
-    if(MouseStateTracker:IsStateActive("buymenu") and (bitName == "PrimaryAttack"  or bitName == "SecondaryAttack")) then
-      return
-    end
-    
+  if(keydown) then    
     self.MoveInputBitFlags = bit.bor(self.MoveInputBitFlags, Move[bitName])
   else
     self.MoveInputBitFlags = bit.band(self.MoveInputBitFlags, bit.bnot(Move[bitName]))
