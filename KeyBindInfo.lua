@@ -185,17 +185,6 @@ KeyBindInfo.AlienCommander = {
     }
 }
 
-KeyBindInfo.HiddenKeybinds = {
-    Hidden = true,
-    Name = "EngineInternal",
-    Keybinds = {
-      {"ActivateSteamworksOverlay"},
-      {"LockViewFrustum"},
-      {"LockViewPoint"},
-      {"ToggleDebugging"},
-    }
-}
-
 KeyBindInfo.MarineSayings = {
     OverrideGroup = "Marine",
     Name = "MarineSayings",
@@ -404,7 +393,6 @@ function KeyBindInfo:AddDefaultKeybindGroups()
   self:AddKeybindGroup(self.ActionKeybinds)
 
   self:AddKeybindGroup(self.MiscKeybinds)
-  self:AddKeybindGroup(self.HiddenKeybinds)
   
   self:AddKeybindGroup(self.AlienSayings)
   self:AddKeybindGroup(self.MarineSayings) 
