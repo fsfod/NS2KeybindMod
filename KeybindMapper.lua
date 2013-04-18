@@ -42,7 +42,6 @@ KeybindMapper = {
 
   AltDown = false,
   OverrideGroups = {},
-  OverrideGroupLookup = {},
   
 -- change this to true if you want all keybinds tobe ignored when the console is open
 -- this is disabled by default because there issues with dectecting when the console is open
@@ -130,15 +129,10 @@ function KeybindMapper:ShutDown()
   self.IsCommander = false
 
   self.OverrideGroups = {}
-  self.OverrideGroupLookup = {}
 
   self.ConsoleCmdKeys = {}
   self.Keybinds = {}
-  
-  self.TeamOverrides = nil
-  self.CommanderOverrides = nil
-  self.CommanderTeamOverrides = nil
-  
+    
   //PlayerEvents.UnregisterAllCallbacks(self)
 end
 
@@ -196,13 +190,14 @@ end
 function KeybindMapper:ReloadKeybindGroups()
 
   if(#self.OverrideGroups ~= 0) then
-    local old = self.OverrideGroups
-    self.OverrideGroups = {}
-    self.OverrideGroupLookup = {}
-
-    for _,group in ipairs(old) do
-      self:ActivateKeybindGroup(group.GroupName)
+    
+    local groups = {} 
+    
+    for i,group in ipairs(self.OverrideGroups) do
+      groups[i] = group.GroupName
     end
+    
+    self:SetOverrideGroups(groups)
   end
   
   self.CommanderHotKeys = KeyBindInfo:GetGroupBoundKeys("CommanderHotKeys")
@@ -429,21 +424,12 @@ function KeybindMapper:OnCommander(CommanderSelf)
   
   self.IsCommander = true
   
-  self.CommanderOverrides = self:ActivateOverrideGroup("Commander")
-  self.CommanderTeamOverrides = self:ActivateOverrideGroup((CommanderSelf:isa("MarineCommander") and "MarineCommander") or "AlienCommander")
+  self:UpdateOverrideGroups("Commander", (CommanderSelf:isa("MarineCommander") and "Marine") or "Alien")
   
   self:ResetInputStateData("OnCommander")
 end
 
 function KeybindMapper:OnPlayerTeamChange(newTeam, oldTeam)
-
-  if(self.TeamOverrides) then
-    for i,name in ipairs(self.TeamOverrides) do
-      self:DeactivateKeybindGroup(name)
-    end
-    
-    self.TeamOverrides = nil
-  end
 
   local teamName
 
@@ -466,74 +452,37 @@ function KeybindMapper:OnUnCommander()
 
   self.IsCommander = false
   
-  self:DeactivateOverrideGroup(self.CommanderTeamOverrides)
-  self.CommanderTeamOverrides = nil
-  
-  self:DeactivateOverrideGroup(self.CommanderOverrides)
-  self.CommanderOverrides = nil
+  self:UpdateOverrideGroups("TODO")
 
   self:ResetInputStateData("OnUnCommander")
 end
 
-function KeybindMapper:ActivateOverrideGroup(groupName)
+function KeybindMapper:UpdateOverrideGroups(class, team)
   
-  local groupNames = KeyBindInfo:GetKeybindGroupsForOverrideGroup(groupName)
-
-  if(#groupNames == 0) then
-    return nil
+  if(#self.OverrideGroups ~= 0) then
+    self.OverrideGroups = {}
   end
-  
-  for i,name in ipairs(groupNames) do
-    self:ActivateKeybindGroup(name)
-  end
-  
-  return groupNames
-end
 
-function KeybindMapper:DeactivateOverrideGroup(groupNames)
-
-  if(not groupNames) then
+  if(not class and not team) then
     return
   end
   
+  self:SetOverrideGroups(KeyBindInfo:GetMatchingOverrideGroups(class, team))
+end
+
+function KeybindMapper:SetOverrideGroups(groupNames)
+  
+  if(#self.OverrideGroups ~= 0) then
+    self.OverrideGroups = {}
+  end
+  
   for i,name in ipairs(groupNames) do
-    self:DeactivateKeybindGroup(name)
+    
+    self.OverrideGroups[i] = {
+      GroupName = groupname, 
+      Keys = KeyBindInfo:GetGroupBoundKeys(groupname)
+    }
   end
-end
-
-function KeybindMapper:ActivateKeybindGroup(groupname)
-  
-  if(self.OverrideGroupLookup[groupname]) then
-    Print("KeybindMapper:ActivateKeybindGroup group \""..groupname.."\" is already active")
-   return
-  end
-  
-  local boundkeys = KeyBindInfo:GetGroupBoundKeys(groupname)
-
-  local group = {GroupName = groupname, Keys = boundkeys}
-
-  self.OverrideGroupLookup[groupname] = group
-  table.insert(self.OverrideGroups, group)
-end
-
-function KeybindMapper:DeactivateKeybindGroup(groupname)
-
-  local index
-
-  for i,group in ipairs(self.OverrideGroups) do
-    if(group.GroupName == groupname) then
-       index = i
-      break
-    end
-  end
-
-  --just silently return if the group is not active
-  if(not index) then
-    return
-  end
-
-  table.remove(self.OverrideGroups, index)
-  self.OverrideGroupLookup[groupname] = nil
 end
 
 //TODO figure out how to handle upkey event also handle causing an key up event if the modifer key is released with the normal still held down
@@ -726,22 +675,18 @@ function KeybindMapper:GetHotKeyButtonIndex(key)
   //self.lastHotkeyIndex = index
 end
 
-local CommaderOverrideGroups = {
-  CommanderShared = true,
-  MarineCommander = true,
-  AlienCommander = true,
-}
-
 function KeybindMapper:CommaderOnKey(key, down)
   local action, overrideGroup, modifier = self:FindKeysActionWithModifers(key)
 
-  local commanderUseable = action and ((overrideGroup and CommaderOverrideGroups[overrideGroup]) or 
-                           action.UserConsoleCmdBind or KeyBindInfo.CommanderUsableGlobalBinds[action.BindName])
-  
+  local commanderUseable = action and (overrideGroup and KeybindInfo:GetIsGroupForClass(overrideGroup, "Commander")) or
+                           action.UserConsoleCmdBind or 
+                           KeyBindInfo.CommanderUsableGlobalBinds[action.BindName])
+
   local HotKeyButton = self:GetHotKeyButtonIndex(key)
   
   local UseHotKey = HotKeyButton and (not commanderUseable or 
-                                       (self.HotKeyShiftOverride and not InputKeyHelper:IsShiftDown()) or (not self.HotKeyShiftOverride and InputKeyHelper:IsShiftDown()))
+                                     (self.HotKeyShiftOverride and not InputKeyHelper:IsShiftDown()) or 
+                                     (not self.HotKeyShiftOverride and InputKeyHelper:IsShiftDown()))
 
   if(UseHotKey) then
     if(down) then      

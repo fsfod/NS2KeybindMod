@@ -27,6 +27,7 @@ Public functions:
   table GetGroupBoundKeys(string groupName)
   string GetBoundKeyGroup(string keyName, string groupName)
   string:groupname GetBindsGroup(stirng bindName)
+  bool GetIsGroupForClass(string groupName, string className)
   
   table(array of group names) GetKeybindGroupsForOverrideGroup(string overrideGroup)
 ]]--
@@ -44,9 +45,8 @@ KeyBindInfo = {
   
   KeyBindsChangedCallsbacks = {},
 
-  KeybindGroupLookup = {},
-  KeybindGroups = {}, --we need this so we have an ordered list of keybind groups when deciding default keys
-  KeybindOverrideGroups = {},
+  GroupLookup = {},
+  GroupList = {}, --we need this so we have an ordered list of keybind groups when deciding default keys
   LogLevel = 1,
 }
 
@@ -110,20 +110,19 @@ KeyBindInfo.ActionKeybinds = {
 KeyBindInfo.MiscKeybinds = {
     Name = "Misc",
     Keybinds = {
-      {"OpenFeedback", "Open Feedback Webpage", "F5"},
       //{"ToggleThirdPerson",  "Toggle Third Person View", ""},
-      {"JoinMarines",   "Join Marines",         "F1"},
+      {"JoinMarines",    "Join Marines",         "F1"},
       {"JoinAliens",     "Join Aliens",          "F2"},
       {"JoinRandom",     "Join Random Team",     "F3"},
-      {"ReadyRoom",    "Return to Ready Room", "F4"},
-      {"ToggleConsole", "Toggle Console",         "Grave"},
+      {"ReadyRoom",      "Return to Ready Room", "F4"},
+      {"ToggleConsole",  "Toggle Console",       "Grave"},
       {"Exit",           "Open Main Menu",       "Escape"},
     }
 }
 
 KeyBindInfo.CommanderShared = {
-    OverrideGroup = "Commander",
     Name = "CommanderShared",
+    Class = "Commander",
     Label = "Commander Shared Overrides",
     
     Keybinds = {
@@ -138,8 +137,8 @@ KeyBindInfo.CommanderShared = {
 
 
 KeyBindInfo.CommanderHotKeys = {
-    OverrideGroup = true,
     Name = "CommanderHotKeys",
+    Class = "Commander",
     Label = "Commander Hot Keys",
 
     Keybinds = {
@@ -161,8 +160,9 @@ KeyBindInfo.CommanderHotKeys = {
 }
 
 KeyBindInfo.MarineCommander = {
-    OverrideGroup = "MarineCommander",
     Name = "MarineCommander",
+    Team = "Marine",
+    Class = "Commander",
     Label = "Marine Commander Overrides",  
     
     Keybinds = {
@@ -175,8 +175,9 @@ KeyBindInfo.MarineCommander = {
 }
 
 KeyBindInfo.AlienCommander = {
-    OverrideGroup = "AlienCommander",
     Name = "AlienCommander",
+    Team = "Alien",
+    Class = "Commander",
     Label = "Alien Commander Overrides",  
 
     Keybinds = {
@@ -186,8 +187,9 @@ KeyBindInfo.AlienCommander = {
 }
 
 KeyBindInfo.MarineSayings = {
-    OverrideGroup = "Marine",
     Name = "MarineSayings",
+    Team = "Marine",
+    ExcludeClass = {Commander = true},
     Label = "Marine Request Sayings",  
 
     Keybinds = {
@@ -205,8 +207,9 @@ KeyBindInfo.MarineSayings = {
 }
 
 KeyBindInfo.AlienSayings = {
-    OverrideGroup = "Alien",
     Name = "AlienSayings",
+    Team = "Alien",
+    ExcludeClass = {Commander = true},
     Label = "Alien Sayings",  
     
     Keybinds = {
@@ -217,8 +220,9 @@ KeyBindInfo.AlienSayings = {
 }
 
 KeyBindInfo.MarineBuy = {
-    OverrideGroup = "Marine",
     Name = "MarineBuy",
+    Team = "Marine",
+    ExcludeClass = {Commander = true},
     Label = "Marine Buy",  
 
     Keybinds = {
@@ -237,8 +241,9 @@ KeyBindInfo.MarineBuy = {
 }
 
 KeyBindInfo.AlienBuy = {
-    OverrideGroup = "Alien",
     Name = "AlienBuy",
+    Team = "Alien",
+    ExcludeClass = {Commander = true},
     Label = "Alien Buy",  
 
     Keybinds = {
@@ -263,10 +268,6 @@ KeyBindInfo.AlienBuy = {
 
 KeyBindInfo.EngineProcessed = {
   ToggleConsole = true,
-  ActivateSteamworksOverlay = true,
-  LockViewFrustum = true,
-  LockViewPoint = true,
-  ToggleDebugging = true,
   VoiceChat = true,
 }
 
@@ -313,7 +314,15 @@ function KeyBindInfo:ReloadKeyBindInfo(returnChanges)
   self.LazyLoad = nil
 end
 
-
+function KeyBindInfo:IsOverrideGroup(group)
+  
+  if(type(group) == "string") then
+    group = self.GroupLookup[group]
+  end
+  
+  return group.Class ~= nil or group.Team ~= nil
+end
+  
 function KeyBindInfo:Load_NewConfig(keybindList)
 
   for bindName,keyEntry in pairs(keybindList) do
@@ -351,10 +360,9 @@ end
 function KeyBindInfo:ResetKeybinds()
 
   self.BoundKeys = {}
-  local bindList = KeybindMod:ResetKeybindTable()
-  self.KeybindNameToKey = bindList
+  self.KeybindNameToKey = {}
 
-  for _,bindgroup in ipairs(self.KeybindGroups) do
+  for _,bindgroup in ipairs(self.GroupList) do
     local isInOverrideGroup = bindgroup.OverrideGroup
     
     for _,bind in ipairs(bindgroup.Keybinds) do
@@ -372,7 +380,7 @@ end
 
 function KeyBindInfo:FillInFreeDefaults()
   
-  for _,bindgroup in ipairs(self.KeybindGroups) do
+  for _,bindgroup in ipairs(self.GroupList) do
     local IsOverrideGroup = bindgroup.OverrideGroup
     
     for _,bind in ipairs(bindgroup.Keybinds) do
@@ -405,16 +413,42 @@ function KeyBindInfo:AddDefaultKeybindGroups()
   self:AddKeybindGroup(self.CommanderHotKeys)  
 end
 
-function KeyBindInfo:GetKeybindGroupsForOverrideGroup(overrideGroup)
+//team can optionally be nil
+//if a group does not both specify a team and a class 
+function KeyBindInfo:GetMatchingOverrideGroups(class, team)
+
+  assert(team or class, "either a team or class or both must be passed in")
+  assert(not team or type(team) == "string")
+  assert(type(class) == "string")
   
   local groupNames = {}
 
-  //return group names in reverse order of what they are in self.KeybindGroups
-  for i=#self.KeybindGroups,1,-1 do
-    
-    if(self.KeybindGroups[i].OverrideGroup == overrideGroup) then
-      groupNames[#groupNames+1] = self.KeybindGroups[i].Name
+  for i,group in ipairs(self.GroupList) do
+        
+    //We skip non override groups that are also in the list
+    if(self:IsOverrideGroup(group)) then
+      
+      local matchsTeam = team and team == group.Team      
+      local matchsClass = class == group.Class and (not group.ExcludeClass or not group.ExcludeClass[class])
+      
+      //we match 1. groups that 
+      if((matchsTeam and (matchsClass or not group.Class)) or
+         (matchsClass and (not team or not group.Team)) then
+          
+        groupNames[#groupNames+1] = {matchsClass, matchsTeam, i, group.Name}
+      end
     end
+  end
+  
+  //group sorting order Groups that specifed a Class and Team first, groups that just specifed Class next, then groups that just specifed a Team
+  //those 3 sub groups are then sorted based on the order they were registed with keybinfo which is the same order they are displayed in the binding option page
+  table.sort(groupNames, function(group1, group2)
+    return (group1[1] and not group2[1]) or (group1[2] and not group2[2]) or group1[3] > group2[3]
+  end)
+  
+  //convert back to group
+  for i,v in ipairs(groupNames) do
+    groupNames[i] = v[4]
   end
   
   return groupNames
@@ -440,9 +474,9 @@ end
 --
 function KeyBindInfo:AddKeybindGroup(keybindGroup)
   
-  table.insert(self.KeybindGroups, keybindGroup)
+  table.insert(self.GroupList, keybindGroup)
 
-  self.KeybindGroupLookup[keybindGroup.Name] = keybindGroup
+  self.GroupLookup[keybindGroup.Name] = keybindGroup
 
   for _,keybind in ipairs(keybindGroup.Keybinds) do
     self.KeybindToGroup[keybind[1]] = keybindGroup
@@ -669,16 +703,8 @@ end
 
 function KeyBindInfo:SaveConsoleCmdKeyList()
 
-  if(next(self.BoundConsoleCmds)) then
-    local keylist = {}
-
-    for key,consoleCmd in pairs(self.BoundConsoleCmds) do
-      keylist[#keylist+1] = key
-    end
-
-    Client.SetOptionString("Keybinds/ConsoleKeys", table.concat(keylist, ",")..",")
-  else
-    Client.SetOptionString("Keybinds/ConsoleKeys", "")
+  for key,consoleCmd in pairs(self.BoundConsoleCmds) do
+    keylist[#keylist+1] = key
   end
 end
 
@@ -691,7 +717,7 @@ function KeyBindInfo:GetBindingDialogTable()
     local bindTable = {}
     local index = 1
 
-    for _,bindgroup in ipairs(self.KeybindGroups) do
+    for _,bindgroup in ipairs(self.GroupList) do
       if(not bindgroup.Hidden) then
         bindTable[index] = bindgroup
         index = index+1
@@ -761,7 +787,7 @@ end
 function KeyBindInfo:GetBoundKeyGroup(key, groupName)
   assert(key)
   
-  local group = self.KeybindGroupLookup[groupName]
+  local group = self.GroupLookup[groupName]
   assert(group)
 
   for _,bindinfo in ipairs(group.Keybinds) do
@@ -789,6 +815,19 @@ end
 
 function KeyBindInfo:GetBindsGroup(bindname)
   return self.KeybindToGroup[bindname].Name
+end
+
+function KeyBindInfo:GetIsGroupForClass(groupName, className)
+  
+  assert(type(groupName) == "string")
+  
+  local group = self.GroupLookup[groupName]
+  
+  if(group == nil) then
+    error("keybind group"..groupName.." does not exist")
+  end
+  
+  return group.Class == className
 end
 
 function KeyBindInfo:CheckIsConflicSolved(changedKey)
@@ -930,7 +969,7 @@ end
 
 
 function KeyBindInfo:KeybindGroupExists(groupname)
-  return self.KeybindGroupLookup[groupname] ~= nil
+  return self.GroupLookup[groupname] ~= nil
 end
 
 function KeyBindInfo:GetGroupBoundKeys(groupname)
@@ -941,7 +980,7 @@ function KeyBindInfo:GetGroupBoundKeys(groupname)
 
   local keybinds = {}
 
-    for _,bindinfo in ipairs(self.KeybindGroupLookup[groupname].Keybinds) do
+    for _,bindinfo in ipairs(self.GroupLookup[groupname].Keybinds) do
       local keyEntry = self.KeybindNameToKey[bindinfo[1]]
 
       if(keyEntry) then
@@ -964,7 +1003,7 @@ end
 
 function KeyBindInfo:ResetOverrideGroup(overrideGroup)
   
-  local Group = self.KeybindGroupLookup[overrideGroup]
+  local Group = self.GroupLookup[overrideGroup]
   
   if(not Group) then
     error("ResetOverrideGroup no group named "..overrideGroup.." exists.")
@@ -1114,7 +1153,7 @@ end
 
 function KeyBindInfo:Load_OldConfig()
   
-  for _,bindgroup in ipairs(self.KeybindGroups) do
+  for _,bindgroup in ipairs(self.GroupList) do
     if(bindgroup.OverrideGroup) then
       self:LoadOverrideGroup(bindgroup)
     else
