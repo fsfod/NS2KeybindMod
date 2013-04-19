@@ -6,6 +6,9 @@ Script.Load("lua/ConsoleBindings.lua")
 Script.Load("lua/menu/MouseTracker.lua")
 Script.Load("lua/PlayerInput.lua")
 
+Script.Load("lua/KeybindInfo.lua")
+Script.Load("lua/KeybindMapper.lua")
+
 local keyEventBlocker = nil
 local moveInputBlocked = false
 
@@ -110,10 +113,6 @@ function SetKeyEventBlocker(setKeyEventBlocker)
     keyEventBlocker = setKeyEventBlocker
 end
 
-function SetMoveInputBlocked(blocked)
-    moveInputBlocked = blocked
-end
-
 /**
  * This will update the internal state to match the settings that have been
  * specified in the options. This function should be called when the options
@@ -207,6 +206,9 @@ local function OnSendKeyEvent(key, down, amount, repeated)
         
         // Filter out the OS key repeat for our general movement (but we'll use it for GUI).
         if not repeated then
+          
+            KeybindMapper:SendKeyEvent(key, down, amount)
+          
             _keyState[key] = down
             if down and not moveInputBlocked then
                 _keyPressed[key] = amount

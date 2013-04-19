@@ -17,6 +17,9 @@
   void DeactivateKeybindGroup(string groupname)
 ]]--
 
+local bor, band, bnot = bit.bor, bit.band, bit.bnot
+
+
 local IsReload = false
 
 if(not KeybindMapper) then
@@ -30,7 +33,7 @@ KeybindMapper = {
   KeybindActions = {},
 
   MovementVector = Vector(0,0,0),
-  MoveInputBitFlags = 0,
+  MoveBitFlags = 0,
   RunningActions = {},
   EatKeyUp = {},
 
@@ -40,7 +43,6 @@ KeybindMapper = {
   InGameMenuOpen = false,
   ConsoleOpen = false,
 
-  AltDown = false,
   OverrideGroups = {},
   
 -- change this to true if you want all keybinds tobe ignored when the console is open
@@ -79,6 +81,10 @@ MovementKeybinds.MoveBackward[4] = MovementKeybinds.MoveForward
 MovementKeybinds.MoveLeft[4] = MovementKeybinds.MoveRight
 MovementKeybinds.MoveRight[4] = MovementKeybinds.MoveLeft
 
+
+function SetMoveInputBlocked(blocked)
+    KeybindMapper.MoveInputBlocked = blocked
+end
 
 function KeybindMapper:Init()
 
@@ -145,9 +151,9 @@ end
 function KeybindMapper:ResetInputStateData(caller)
   --Shared.Message("ResetInputStateData "..caller)
   self.MovementVector = Vector(0,0,0)
-  self.MoveInputBitFlags = 0
+  self.MoveBitFlags = 0
   
-  self.PulseMoveBits = 0
+  self.PulsedMoveBits = 0
   
   self.RunningActions = {}
   self.EatKeyUp = {}
@@ -220,23 +226,7 @@ function KeybindMapper:PulseInputBit(bitname, action)
   assert(Move[bitname], "no input bit named "..bitname)
   assert(action)
 
-  self.PulseMoveBits = bit.bor(self.PulseMoveBits, Move[bitname])
-end
-
-function KeybindMapper:AddPulsedInputBitAction(bitname, weaponSelector)
-
-  local Action = {
-    InputBit = bitname,
-    UpdatesMove = true,
-    WeaponSelect = weaponSelector,
-    
-    OnDown = function()
-      self:PulseInputBit(bitname, bitname)
-    end,
-  }
-
-  self.InputBitActions[bitname] = Action
-  self:RegisterActionToBind(bitname, Action)
+  self.PulsedMoveBits = bit.bor(self.PulsedMoveBits, Move[bitname])
 end
 
 local SkipMoveBits = {
@@ -255,7 +245,7 @@ local SkipMoveBits = {
   Weapon6 = true,
 }
 
-local PulsedInputBits = {
+KeybindMapper.PulsedInputBits = {
   ToggleFlashlight = true,
   Drop = true,
   Taunt = true,
@@ -272,16 +262,39 @@ local PulsedInputBits = {
   ToggleVoteMenu = true,
   ToggleSayings1 = true,
   ToggleSayings2 = true,
-  
 }
 
 function KeybindMapper:AddMoveBitBind(bindName, moveBit)
 
-  local setInputBit = function(keyDown)  
+  local setInputBit = function(keyDown)
+    
+    if(self.MoveInputBlocked) then
+      return
+    end
+
     if(keyDown) then
-      self.MoveInputBitFlags = bit.bor(self.MoveInputBitFlags, moveBit)
+      self.MoveBitFlags = bor(self.MoveBitFlags, moveBit)
     else
-      self.MoveInputBitFlags = bit.band(self.MoveInputBitFlags, bit.bnot(moveBit))
+      self.MoveBitFlags = band(self.MoveBitFlags, bnot(moveBit))
+    end
+  end
+
+  self.InputBitActions[setInputBit] = bindName
+  self:RegisterActionToBind(bindName, setInputBit)
+end
+
+function KeybindMapper:AddPulsedMoveBitBind(bindName, moveBit)
+
+  local setInputBit = function(keyDown)
+    
+    if(self.MoveInputBlocked) then
+      return
+    end
+
+    if(keyDown) then
+      self.PulsedMoveBits = bor(self.PulsedMoveBits, moveBit)
+    else
+      //do nothing we clear self.PulsedMoveBits when we fill in the move
     end
   end
 
@@ -299,8 +312,8 @@ function KeybindMapper:SetupMoveVectorAndInputBitActions()
     end
   end
 
-  for bitname,_ in pairs(PulsedInputBits) do
-    self:AddPulsedInputBitAction(bitname)
+  for bitname,_ in pairs(self.PulsedInputBits) do
+    self:AddPulsedMoveBitBind(bitname)
   end
   
   //for i=1,6 do
@@ -374,8 +387,6 @@ end
 
 function KeybindMapper:OnKeybindsChanged(changes)
   
---  local notSingle = next(changes) and next(changes, next(changes))
-  
   self:ReloadKeybindGroups()
   self:RefreshInputKeybinds()
 end
@@ -395,8 +406,6 @@ function KeybindMapper:InGameMenuOpened()
 end
 
 function KeybindMapper:InGameMenuClosed()
-
-  ChangedKeybinds = false
 
   if(self.IsShutDown) then
     return
@@ -441,7 +450,7 @@ function KeybindMapper:OnPlayerTeamChange(newTeam, oldTeam)
     return
   end
   
-  self.TeamOverrides = self:ActivateOverrideGroup(teamName)
+  self:UpdateOverrideGroups(teamName)
 end
 
 function KeybindMapper:OnUnCommander()
@@ -538,6 +547,24 @@ function KeybindMapper:FindKeysAction(key)
   
   
   return nil
+end
+
+function KeybindMapper:SendKeyEvent(key, down, amount, IsRepeat)
+
+  local handled = false
+
+	if(key ~= InputKey.MouseX and key ~= InputKey.MouseY) then 
+      local keystring = InputKeyHelper:ConvertToKeyName(key, down)
+      
+      if(down or key == InputKey.MouseZ) then
+        handled = self:OnKeyDown(keystring, amount)
+      else
+        handled = self:OnKeyUp(keystring)
+      end
+      
+	end
+
+	return handled
 end
 
 local MenuPassThrough = {
@@ -678,7 +705,7 @@ end
 function KeybindMapper:CommaderOnKey(key, down)
   local action, overrideGroup, modifier = self:FindKeysActionWithModifers(key)
 
-  local commanderUseable = action and (overrideGroup and KeybindInfo:GetIsGroupForClass(overrideGroup, "Commander")) or
+  local commanderUseable = action and ((overrideGroup and KeybindInfo:GetIsGroupForClass(overrideGroup, "Commander")) or
                            action.UserConsoleCmdBind or 
                            KeyBindInfo.CommanderUsableGlobalBinds[action.BindName])
 
@@ -809,9 +836,9 @@ function KeybindMapper:SetInputBit(bitName, keydown, keyName)
   assert(Move[bitName], "Uknowned input bit "..(bitName or "nil")) 
 
   if(keydown) then    
-    self.MoveInputBitFlags = bit.bor(self.MoveInputBitFlags, Move[bitName])
+    self.MoveBitFlags = bit.bor(self.MoveBitFlags, Move[bitName])
   else
-    self.MoveInputBitFlags = bit.band(self.MoveInputBitFlags, bit.bnot(Move[bitName]))
+    self.MoveBitFlags = bit.band(self.MoveBitFlags, bit.bnot(Move[bitName]))
   end
 end
 
@@ -838,14 +865,11 @@ function KeybindMapper:HandleMovmentVector(movedir, keydown)
   end
 end
 
-local bor = bit.bor
-
-//this is called from our OverrideInput hook
 function KeybindMapper:FillInMove(input, isCommander)
   
-  local commandBits = bit.bor(self.MoveInputBitFlags, self.PulseMoveBits)
+  local commandBits = bit.bor(self.MoveBitFlags, self.PulsedMoveBits)
   
-  self.PulseMoveBits = 0
+  self.PulsedMoveBits = 0
   
   if(not isCommander) then
     input.move = self.MovementVector

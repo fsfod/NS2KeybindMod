@@ -4,6 +4,12 @@
     <filename>InputHandler.lua</filename>
   </file>
   <file>
+    <filename>KeyBindInfo.lua</filename>
+  </file>
+  <file>
+    <filename>KeybindMapper.lua</filename>
+  </file>
+  <file>
     <filename>ModClient.lua</filename>
   </file>
   <file>

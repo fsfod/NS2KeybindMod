@@ -292,13 +292,8 @@ KeyBindInfo.CommanderUsableGlobalBinds = {
 function KeyBindInfo:Init()
   
   if(not self.Loaded) then
-    self.ConfigPath = "input/"
-    
+    self.ConfigPath = "input/"    
     self:AddDefaultKeybindGroups()
-    
-    if(StartupLoader.LoadCompleted) then
-      self:ReloadKeyBindInfo()
-    end
   end
 end
 
@@ -433,7 +428,7 @@ function KeyBindInfo:GetMatchingOverrideGroups(class, team)
       
       //we match 1. groups that 
       if((matchsTeam and (matchsClass or not group.Class)) or
-         (matchsClass and (not team or not group.Team)) then
+         (matchsClass and (not team or not group.Team))) then
           
         groupNames[#groupNames+1] = {matchsClass, matchsTeam, i, group.Name}
       end
@@ -1206,3 +1201,8 @@ function KeyBindInfo_FillInBindKeys(s)
   local s = string.gsub(s, "(@[^@]+@)", BindReplacer)
   return s
 end
+
+Event.Hook("LoadComplete", function()
+  KeyBindInfo:Init()
+  KeyBindInfo:ReloadKeyBindInfo()
+end)
