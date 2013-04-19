@@ -53,12 +53,12 @@ KeyBindInfo = {
 end
 
 KeyBindInfo.ModifierKeys = {
-  LeftShift = true,
-  RightShift = true,
-  LeftControl = true,
-  RightControl = true,
-  LeftAlt = true,
-  RightAlt = true,
+  LeftShift = InputKey.LeftShift,
+  RightShift = InputKey.RightShift,
+  LeftControl = InputKey.LeftControl,
+  RightControl = InputKey.RightControl,
+  LeftAlt = InputKey.LeftAlt,
+  RightAlt = InputKey.RightAlt,
 }
 
 KeyBindInfo.MovementKeybinds = {

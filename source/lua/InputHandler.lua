@@ -12,6 +12,12 @@ Script.Load("lua/KeybindMapper.lua")
 local keyEventBlocker = nil
 local moveInputBlocked = false
 
+InputKeyLookup = {}
+
+for k,v in pairs(InputKey) do
+  InputKeyLookup[v] = k
+end
+
 local _keyBinding =
 {
     MoveForward = InputKey.W,
@@ -111,6 +117,10 @@ end
 
 function SetKeyEventBlocker(setKeyEventBlocker)
     keyEventBlocker = setKeyEventBlocker
+end
+
+function IsKeyDown(inputKeyNum)
+    return _keyState[inputKeyNum]
 end
 
 /**

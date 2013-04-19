@@ -34,7 +34,9 @@ KeybindMapper = {
 
   MovementVector = Vector(0,0,0),
   MoveBitFlags = 0,
+  PulsedMoveBits = 0,
   RunningActions = {},
+  ActiveModifierKeys = {},
   EatKeyUp = {},
 
   IsShutDown = true,
@@ -90,7 +92,7 @@ function KeybindMapper:Init()
 
   if(not self.Loaded) then
     self:SetupMoveVectorAndInputBitActions()  
-    self:SetupHooks()
+    //self:SetupHooks()
     
     KeyBindInfo:RegisterForKeyBindChanges(self, "OnKeybindsChanged")
     
@@ -151,8 +153,7 @@ end
 function KeybindMapper:ResetInputStateData(caller)
   --Shared.Message("ResetInputStateData "..caller)
   self.MovementVector = Vector(0,0,0)
-  self.MoveBitFlags = 0
-  
+  self.MoveBitFlags = 0  
   self.PulsedMoveBits = 0
   
   self.RunningActions = {}
@@ -229,23 +230,9 @@ function KeybindMapper:PulseInputBit(bitname, action)
   self.PulsedMoveBits = bit.bor(self.PulsedMoveBits, Move[bitname])
 end
 
-local SkipMoveBits = {
-  ToggleFlashlight = true,
-  TextChat = true,
-  TeamChat = true,
-  MoveForward = true,
-  MoveBackward = true,
-  MoveLeft = true,
-  MoveRight = true,
-  Weapon1 = true,
-  Weapon2 = true,
-  Weapon3 = true,
-  Weapon4 = true,
-  Weapon5 = true,
-  Weapon6 = true,
-}
 
 KeybindMapper.PulsedInputBits = {
+  Exit = true,
   ToggleFlashlight = true,
   Drop = true,
   Taunt = true,
@@ -257,11 +244,24 @@ KeybindMapper.PulsedInputBits = {
   Weapon3 = true,
   Weapon4 = true,
   Weapon5 = true,
-  Weapon6 = true,
   
   ToggleVoteMenu = true,
-  ToggleSayings1 = true,
-  ToggleSayings2 = true,
+  ToggleRequest = true,
+  ToggleSayings = true,
+}
+
+KeybindMapper.MoveBitList = {
+  "Jump",
+  "MovementModifier",
+  "Crouch",
+  "Scoreboard",
+  "PrimaryAttack",
+  "SecondaryAttack",
+  "Reload",
+  "ShowMap",
+  //"VoiceChat",
+  "TextChat",
+  "TeamChat",
 }
 
 function KeybindMapper:AddMoveBitBind(bindName, moveBit)
@@ -285,6 +285,8 @@ end
 
 function KeybindMapper:AddPulsedMoveBitBind(bindName, moveBit)
 
+  assert(type(moveBit) == "number")
+
   local setInputBit = function(keyDown)
     
     if(self.MoveInputBlocked) then
@@ -304,16 +306,14 @@ end
 
 function KeybindMapper:SetupMoveVectorAndInputBitActions()
 
-  for _,bitname in ipairs(MoveEnum) do
-    if(not SkipMoveBits[bitname] and not PulsedInputBits[bitname]) then
-      assert(Move[bitName])
-      
-      self:AddMoveBitBind(bitname, Move[bitName])
-    end
+  for _,bitName in ipairs(self.MoveBitList) do
+    assert(Move[bitName], "unknown Move bit name")
+    self:AddMoveBitBind(bitName, Move[bitName])
   end
 
-  for bitname,_ in pairs(self.PulsedInputBits) do
-    self:AddPulsedMoveBitBind(bitname)
+  for bitName,_ in pairs(self.PulsedInputBits) do
+    assert(Move[bitName], "unknown Move bit name")
+    self:AddPulsedMoveBitBind(bitName, Move[bitName])
   end
   
   //for i=1,6 do
@@ -499,9 +499,9 @@ function KeybindMapper:FindKeysActionWithModifers(key)
   
   if(not KeyBindInfo.ModifierKeys[key]) then
   
-    for modifer,v in pairs(KeyBindInfo.ModifierKeys) do
+    for modifer,keyNum in pairs(KeyBindInfo.ModifierKeys) do
       
-      if(InputKeyHelper:IsModiferDown(modifer)) then
+      if(IsKeyDown(keyNum)) then
         local action, overrideGroup = self:FindKeysAction(modifer.."-"..key)
         
         if(action) then
@@ -554,7 +554,7 @@ function KeybindMapper:SendKeyEvent(key, down, amount, IsRepeat)
   local handled = false
 
 	if(key ~= InputKey.MouseX and key ~= InputKey.MouseY) then 
-      local keystring = InputKeyHelper:ConvertToKeyName(key, down)
+      local keystring = InputKeyLookup[key]//InputKeyHelper:ConvertToKeyName(key, down)
       
       if(down or key == InputKey.MouseZ) then
         handled = self:OnKeyDown(keystring, amount)
@@ -799,7 +799,7 @@ function KeybindMapper:ActivateAction(action, key, down, modifier)
   
   //no special logic for actions that are just a plain functions 
   if(type(action) == "function") then
-    return func(down, key, modifier)
+    return action(down, key, modifier)
   end
   
   local result = false
@@ -1013,19 +1013,17 @@ function KeybindMapper:LinkBindToConsoleCmd(bindname, commandstring, updown)
   self:RegisterActionToBind(bindname, keybindAction)
 end
 
-function KeybindMapper:RegisterActionToBind(bindname, keybindaction)
+function KeybindMapper:RegisterActionToBind(bindName, keybindAction)
   
-  if(not keybindaction) then
+  if(not keybindAction) then
     error("RegisterActionToBind: was passed a nil action")
   end
 
-  keybindaction.BindName = bindname
-  self.KeybindActions[bindname] = keybindaction
-
-  --map the key that the bindname is set to if were loaded already
-  if(self.Loaded) then
-    local key = KeyBindInfo:GetBoundKey(bindname)
+  if(type(keybindAction) == "table") then
+    keybindAction.BindName = bindName
   end
+  
+  self.KeybindActions[bindName] = keybindAction
 end
 
 function KeybindMapper:GetDescriptionForBoundKey(key)
