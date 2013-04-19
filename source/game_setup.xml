@@ -1,0 +1,9 @@
+<game>
+    <name>shell</name>
+    <description>Shredder</description>
+    <client>lua/ModClient.lua</client>
+    <predict>lua/ModPredict.lua</predict>
+    <server>lua/ModServer.lua</server>
+    <loading>lua/ModLoading.lua</loading>
+    <soundinfo>sound/NS2.soundinfo</soundinfo>
+</game>

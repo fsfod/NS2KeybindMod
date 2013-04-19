@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<project>
+  <file>
+    <filename>InputHandler.lua</filename>
+  </file>
+  <file>
+    <filename>ModClient.lua</filename>
+  </file>
+  <file>
+    <filename>ModLoading.lua</filename>
+  </file>
+  <file>
+    <filename>ModPredict.lua</filename>
+  </file>
+  <file>
+    <filename>ModServer.lua</filename>
+  </file>
+  <file>
+    <filename>ModShared.lua</filename>
+  </file>
+  <file>
+    <filename>Player.lua</filename>
+  </file>
+  <file>
+    <filename>PlayerInput.lua</filename>
+  </file>
+  <file>
+    <filename>..\editor_setup.xml</filename>
+  </file>
+  <file>
+    <filename>..\game_setup.xml</filename>
+  </file>
+</project>

@@ -1,0 +1,5 @@
+name        = "Shredder"
+source_dir  = "source/"
+output_dir  = "output/"
+description = [=[This is a test mod for the mod jam.]=]
+image       = "preview.jpg"
