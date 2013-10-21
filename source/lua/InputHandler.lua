@@ -281,8 +281,10 @@ local function GenerateMove()
     
     AdjustMoveForInversion(move)
     
+    KeybindMapper:FillInMove(move)
+   
     if not moveInputBlocked then
-    
+/*     
         if _keyPressed[ _keyBinding.Exit ] then
             move.commands = bit.bor(move.commands, Move.Exit)
         end
@@ -476,7 +478,7 @@ local function GenerateMove()
         if _keyPressed[ _keyBinding.ESC ] then
             move.hotkey = Move.ESC
         end
-        
+*/        
         // Allow the player to override move (needed for Commander)
         local player = Client.GetLocalPlayer()
         if player and Client.GetIsControllingPlayer() then

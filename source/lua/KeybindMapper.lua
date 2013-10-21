@@ -125,8 +125,6 @@ end
 
 function KeybindMapper:ShutDown()
 
-  self.IsShutDown = true
-
   self:ResetInputStateData("ShutDown")
 
   self.ChatOpen = false
@@ -332,9 +330,9 @@ function KeybindMapper:SetupMoveVectorAndInputBitActions()
      self:RegisterActionToBind(bindname, action)
   end
 
-  local action = KeybindMapper.CreateActionHelper(false, false, self)
-  action.OnDown = self.EscPressed
-  self.FilteredKeys["Escape"] = {action}
+  //local action = KeybindMapper.CreateActionHelper(false, false, self)
+  //action.OnDown = self.EscPressed
+  //self.FilteredKeys["Escape"] = {action}
   /*
   for i=1,5 do
     local action = KeybindMapper.CreateActionHelper(false, false, self, i)
